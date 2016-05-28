@@ -5,7 +5,7 @@ type SettingsFrame
     parameters::Nullable{Array{Tuple{SETTING_IDENTIFIER, UInt32}}}
 end
 
-type UnknownIdentifierError :> Exception end
+type UnknownIdentifierError <: Exception end
 
 function decode_settings(header, payload)
     @assert header.stream_identifier == 0x0

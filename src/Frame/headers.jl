@@ -1,4 +1,4 @@
-type HeadersType
+type HeadersFrame
     is_end_stream::Bool
     is_end_headers::Bool
     is_priority::Bool
@@ -22,12 +22,13 @@ function decode_headers(header, payload)
         exclusive = payload[1] & 0x80 == 0x80
         weight = payload[5]
 
-        return HeadersType(is_end_stream, is_end_headers, is_priority, header.stream_identifier,
+        return HeadersFrame(is_end_stream, is_end_headers, is_priority, header.stream_identifier,
                            Nullable(exclusive), Nullable(dependent_stream_identifier),
                            Nullable(weight), getindex(payload, 6:length(payload)))
     else
-        return HeadersType(is_end_stream, is_end_headers, is_priority, header.stream_identifier,
+        return HeadersFrame(is_end_stream, is_end_headers, is_priority, header.stream_identifier,
                            Nullable{Bool}(), Nullable{UInt32}(), Nullable{UInt8}(), payload)
+    end
 end
 
 function encode_headers(frame)
