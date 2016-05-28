@@ -1,4 +1,4 @@
-type HeadersFrame
+immutable HeadersFrame
     is_end_stream::Bool
     is_end_headers::Bool
     is_priority::Bool
@@ -8,6 +8,16 @@ type HeadersFrame
     weight::Nullable{UInt8}
     fragment::Array{UInt8, 1}
 end
+
+==(a::HeadersFrame, b::HeadersFrame) =
+    a.is_end_stream == b.is_end_stream &&
+    a.is_end_headers == b.is_end_headers &&
+    a.is_priority == b.is_priority &&
+    a.stream_identifier == b.stream_identifier &&
+    (isnull(a.exclusive) || a.exclusive.value == b.exclusive.value) &&
+    (isnull(a.exclusive) || a.dependent_stream_identifier.value == b.dependent_stream_identifier.value) &&
+    (isnull(a.exclusive) || a.weight.value == b.weight.value) &&
+    a.fragment == b.fragment
 
 function decode_headers(header, payload)
     is_end_stream = header.flags & 0x1 == 0x1
@@ -33,16 +43,17 @@ end
 
 function encode_headers(frame)
     typ = HEADERS
-    flags = 0x0 | frame.is_end_stream ? 0x1 : 0x0 | frame.is_end_headers ? 0x4 : 0x0 |
-        frame.is_priority ? 0x20 : 0x0
+    flags = 0x0 | (frame.is_end_stream ? 0x1 : 0x0) |
+        (frame.is_end_headers ? 0x4 : 0x0) |
+        (frame.is_priority ? 0x20 : 0x0)
 
     if frame.is_priority
-        payload::Array{UInt8, 1} = [ UInt8(header.dependent_stream_identifier >> 24) & 0x7f;
-                                     UInt8(header.dependent_stream_identifier >> 16 & 0x000000ff);
-                                     UInt8(header.dependent_stream_identifier >> 8 & 0x000000ff);
-                                     UInt8(header.dependent_stream_identifier & 0x000000ff) ]
-        payload[1] = frame.exclusive ? (payload[1] | 0x80 ) : payload[1]
-        push!(payload, frame.weight)
+        payload::Array{UInt8, 1} = [ UInt8(frame.dependent_stream_identifier.value >> 24) & 0x7f;
+                                     UInt8(frame.dependent_stream_identifier.value >> 16 & 0x000000ff);
+                                     UInt8(frame.dependent_stream_identifier.value >> 8 & 0x000000ff);
+                                     UInt8(frame.dependent_stream_identifier.value & 0x000000ff) ]
+        payload[1] = frame.exclusive.value ? (payload[1] | 0x80 ) : payload[1]
+        push!(payload, frame.weight.value)
         append!(payload, frame.fragment)
     else
         payload = frame.fragment

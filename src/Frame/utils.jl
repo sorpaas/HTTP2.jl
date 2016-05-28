@@ -10,8 +10,8 @@ function remove_padding(header, payload)
 end
 
 function wrap_payload(payload, typ, flags, stream_identifier)
-    length = length(payload)
-    result = encode_header(FrameHeader(length, typ, flags, stream_identifier))
+    len = length(payload)
+    result = encode_header(FrameHeader(len, typ, flags, stream_identifier))
     append!(result, payload)
 
     return result

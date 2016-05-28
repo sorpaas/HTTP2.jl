@@ -1,9 +1,13 @@
 @enum SETTING_IDENTIFIER SETTINGS_HEADER_TABLE_SIZE=0x1 SETTINGS_ENABLE_PUSH=0x2 SETTINGS_MAX_CONCURRENT_STREAMS=0x3 SETTINGS_INITIAL_WINDOW_SIZE=0x4 SETTINGS_MAX_FRAME_SIZE=0x5 SETTINGS_MAX_HEADER_LIST_SIZE=0x6
 
-type SettingsFrame
+immutable SettingsFrame
     is_ack::Bool
     parameters::Nullable{Array{Tuple{SETTING_IDENTIFIER, UInt32}}}
 end
+
+==(a::SettingsFrame, b::SettingsFrame) =
+    a.is_ack == b.is_ack &&
+    (isnull(a.parameters) || a.parameters.value == b.parameters.value)
 
 type UnknownIdentifierError <: Exception end
 
@@ -32,13 +36,13 @@ function encode_settings(frame)
         return wrap_payload([], SETTINGS, 0x1, 0x0)
     else
         payload = Array{UInt8, 1}()
-        for i = 1:length(frame.parameters)
-            append!(payload, [ UInt8(UInt16(frame.parameters[i][1]) >> 8);
-                               UInt8(UInt16(frame.parameters[i][1]) & 0x00ff);
-                               UInt8(frame.parameters[i][2] >> 24);
-                               UInt8(frame.parameters[i][2] >> 16 & 0x000000ff);
-                               UInt8(frame.parameters[i][2] >> 8 & 0x000000ff);
-                               UInt8(frame.parameters[i][2] & 0x000000ff) ])
+        for i = 1:length(frame.parameters.value)
+            append!(payload, [ UInt8(UInt16(frame.parameters.value[i][1]) >> 8);
+                               UInt8(UInt16(frame.parameters.value[i][1]) & 0x00ff);
+                               UInt8(frame.parameters.value[i][2] >> 24);
+                               UInt8(frame.parameters.value[i][2] >> 16 & 0x000000ff);
+                               UInt8(frame.parameters.value[i][2] >> 8 & 0x000000ff);
+                               UInt8(frame.parameters.value[i][2] & 0x000000ff) ])
         end
         return wrap_payload(payload, SETTINGS, 0x0, 0x0)
     end

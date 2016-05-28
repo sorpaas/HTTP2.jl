@@ -1,8 +1,9 @@
 module Frame
+import Base: ==
 
 @enum FRAME_TYPES DATA=0x0 HEADERS=0x1 PRIORITY=0x2 RST_STREAM=0x3 SETTINGS=0x4 PUSH_PROMISE=0x5 PING=0x6 GOAWAY=0x7 WINDOW_UPDATE=0x8 CONTINUATION=0x9
 
-type FrameHeader
+immutable FrameHeader
     length::UInt32
     typ::FRAME_TYPES
     flags::UInt8
@@ -10,12 +11,12 @@ type FrameHeader
 end
 
 function decode_header(buf::IOBuffer)
-    length_arr = readbytes(buf, nb=3; all=true)
+    length_arr = readbytes(buf, 3)
     length = UInt32(length_arr[1]) << 16 + UInt32(length_arr[2]) << 8 + UInt32(length_arr[3])
 
     typ = FRAME_TYPES(read(buf, UInt8))
     flags = read(buf, UInt8)
-    stream_identifier_arr = readbytes(buf, nb=4; all=true)
+    stream_identifier_arr = readbytes(buf, 4)
     stream_identifier = UInt32(stream_identifier_arr[1]) << 24 + UInt32(stream_identifier_arr[2]) << 16 +
         UInt32(stream_identifier_arr[3]) << 8 + UInt32(stream_identifier_arr[4])
 
@@ -33,7 +34,8 @@ function encode_header(header::FrameHeader)
 
     @assert header.stream_identifier & 0x8000000000 == 0
 
-    write(buf, header.stream_identifier)
+    write(buf, UInt8(header.stream_identifier >> 24), UInt8((header.stream_identifier >> 16) & 0x000000ff),
+          UInt8((header.stream_identifier >> 8) & 0x000000ff), UInt8(header.stream_identifier & 0x000000ff))
 
     return takebuf_array(buf)
 end
@@ -55,7 +57,7 @@ include("Frame/continuation.jl")
 
 function decode(buf::IOBuffer)
     header = decode_header(buf)
-    payload = readbytes(buf, nb=header.length; all=true)
+    payload = readbytes(buf, header.length)
 
     if header.typ == DATA
         return decode_data(header, payload)
@@ -92,5 +94,7 @@ encode(frame::PingFrame) = encode_ping(frame)
 encode(frame::GoawayFrame) = encode_goaway(frame)
 encode(frame::WindowUpdateFrame) = encode_window_update(frame)
 encode(frame::ContinuationFrame) = encode_continuation(frame)
+
+export encode, decode, DataFrame, HeadersFrame, PriorityFrame, RstStreamFrame, SettingsFrame, PushPromiseFrame, PingFrame, GoawayFrame, WindowUpdateFrame, ContinuationFrame
 
 end
