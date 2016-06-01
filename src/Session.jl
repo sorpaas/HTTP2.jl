@@ -34,8 +34,17 @@ type Connection
     outbuf::IOBuffer
 end
 
-function new_connection(inbuf::IOBuffer, outbuf::IOBuffer)
+function new_connection(inbuf::IOBuffer, outbuf::IOBuffer, is_client::Bool)
     Connection(new_dynamic_table(), Array{Stream, 1}, 65535, inbuf, outbuf)
+
+    CLIENT_PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
+    if is_client
+        write(outbuf, CLIENT_PREFACE)
+    else
+        client_preface = readbytes(inbuf, length(CLIENT_PREFACE))
+        @assert client_preface == CLIENT_PREFACE
+        write(outbuf, Frame.encode(SettingsFrame(false, Nullable(Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}))))
+    end
 end
 
 function send!(connection::Connection, stream_identifier::UInt32, headers::Array{Header, 1}, body::Array{UInt8, 1})
