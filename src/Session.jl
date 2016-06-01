@@ -30,20 +30,30 @@ type Connection
     dynamic_table::DynamicTable
     streams::Array{Stream, 1}
     window_size::UInt32
-    header_continuations::Nullable{HeaderContinuation}
+    inbuf::IOBuffer
+    outbuf::IOBuffer
 end
 
-function send!(connection::Connection, outbuf::IOBuffer,
-               stream_identifier::UInt32, headers::Array{Header, 1}, body::Array{UInt8, 1})
+function new_connection(inbuf::IOBuffer, outbuf::IOBuffer)
+    Connection(new_dynamic_table(), Array{Stream, 1}, 65535, inbuf, outbuf)
+end
+
+function send!(connection::Connection, stream_identifier::UInt32, headers::Array{Header, 1}, body::Array{UInt8, 1})
+    inbuf = connection.inbuf
+    outbuf = connection.outbuf
+
     stream = get_stream(connection, stream_identifier)
     stream.sending_headers = headers
     stream.sending_body = body
     send_stream_header_continuation(connection, outbuf, stream_identifier)
 end
 
-function promise!(connection::Connection, outbuf::IOBuffer, stream_identifier::UInt32,
+function promise!(connection::Connection, stream_identifier::UInt32,
                   request_headers::Array{Header, 1},
                   headers::Array{Header, 1}, body::Array{UInt8, 1})
+    inbuf = connection.inbuf
+    outbuf = connection.outbuf
+
     stream = get_stream(connection, stream_identifier)
     stream.receiving_headers = request_headers
     stream.sending_headers = headers
@@ -59,7 +69,10 @@ function handle_setting(connection::Connection, key::Frame.SETTING_IDENTIFIER, v
     end
 end
 
-function recv_next(connection::Connection, inbuf::IOBuffer, outbuf::IOBuffer)
+function recv_next(connection::Connection)
+    inbuf = connection.inbuf
+    outbuf = connection.outbuf
+
     frame = decode(inbuf)
 
     if typeof(frame) == DataFrame
@@ -153,7 +166,10 @@ function select_next(streams::Array{Stream, 1}, ignored::Array{Stream, 1})
     return Nullable{Stream}()
 end
 
-function send_next(connection::Connection, outbuf::IOBuffer; ignored=Array{Stream, 1}())
+function send_next(connection::Connection; ignored=Array{Stream, 1}())
+    inbuf = connection.inbuf
+    outbuf = connection.outbuf
+
     stream_nullable = select_next(connection.streams, ignored)
 
     if isnull(stream_nullable)
