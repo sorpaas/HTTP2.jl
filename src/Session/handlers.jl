@@ -1,0 +1,161 @@
+## Headers Handlers
+
+function recv_stream_header_continuations(connection::Connection, headers::HeadersFrame,
+                                          continuations::Array{ContinuationFrame, 1})
+    stream_identifier = header.stream_identifier
+    stream = get_stream(stream_identifier)
+
+    if header.is_priority
+        handle_priority!(connection, stream_identifier, header.exclusive.value,
+                         header.dependent_stream_identifier.value,
+                         header.weight.value)
+    end
+
+    block = similar(headers.fragment)
+
+    if length(continuations) > 0
+        for i = 1:length(continuations)
+            @assert continuations[i].stream_identifier == stream_identifier
+            append!(block, continuations[i].fragment)
+        end
+        @assert continuations[length(continuations)].is_end_headers
+    else
+        @assert headers.is_end_headers
+    end
+
+    stream.received_headers = HPack.decode(connection.dynamic_table, IOBuffer(block))
+
+    if stream.state == IDLE
+        stream.state = OPEN
+        if header.is_end_stream
+            stream.state = HALF_CLOSED_REMOTE
+        end
+    elseif stream.state == RESERVED_REMOTE
+        stream.state = HALF_CLOSED_LOCAL
+    else
+        @assert false
+    end
+end
+
+function send_stream_header_continuations(connection::Connection, buf::IOBuffer,
+                                          stream_identifier::Stream)
+    stream = get_stream(stream_identifier)
+
+    block = HPACK.encode(connection.dynamic_table, stream.sending_headers; huffman=false)
+    is_end_stream = length(stream.body) == 0
+    frame = HeadersFrame(is_end_stream, true, false, stream_identifier, Nullable{Bool}(),
+                         Nullable{UInt32}(), Nullable{UInt8}(), block)
+
+    write(buf, Frame.encode(frame))
+
+    if stream.state == IDLE
+        stream.state = OPEN
+        if is_end_stream
+            stream.state = HALF_CLOSED_LOCAL
+        end
+    elseif stream.state == RESERVED_LOCAL
+        stream.state = HALF_CLOSED_REMOTE
+    else
+        @assert false
+    end
+end
+
+## Data Handlers
+
+function recv_stream_data(connection::Connection, data::DataFrame)
+    stream = get_stream(data.stream_identifier)
+
+    append!(stream.received_body, data.data)
+
+    if stream.state == OPEN
+        if data.is_end_stream
+            stream.state = HALF_CLOSED_REMOTE
+        end
+    elseif stream.state == HALF_CLOSED_LOCAL
+        if data.is_end_stream
+            stream.state = CLOSED
+        end
+    else
+        @assert false
+    end
+end
+
+function send_stream_data(connection::Connection, buf::IOBuffer,
+                          stream_identifier::Stream)
+    stream = get_stream(stream_identifier)
+
+    is_end_stream = true
+    frame = DataFrame(stream_identifier, is_end_stream, stream.sending_body)
+
+    write(buf, Frame.encode(frame))
+
+    if stream.state == OPEN
+        if is_end_stream
+            stream.state = HALF_CLOSED_LOCAL
+        end
+    elseif stream.state == HALF_CLOSED_REMOTE
+        if is_end_stream
+            stream.state = CLOSED
+        end
+    else
+        @assert false
+    end
+end
+
+## Priority Handlers
+
+function recv_stream_priority(connection::Connection, priority::PriorityFrame)
+    handle_priority!(connection, priority.stream_identifier, priority.exclusive,
+                     priority.dependent_stream_identifier,
+                     priority.weight)
+end
+
+## Rst Stream Handlers
+
+function recv_stream_rst_stream(connection::Connection, rstStream::RstStreamFrame)
+    stream = get_stream(rstStream.stream_identifier)
+
+    stream.state = CLOSED
+end
+
+## Push Promise Handlers
+
+function recv_stream_push_promise(connection::Connection, headers::PushPromiseFrame, continuations::Array{ContinuationFrame, 1})
+    stream = get_stream(headers.stream_identifier)
+
+    block = similar(headers.fragment)
+
+    if length(continuations) > 0
+        for i = 1:length(continuations)
+            @assert continuations[i].stream_identifier == stream_identifier
+            append!(block, continuations[i].fragment)
+        end
+        @assert continuations[length(continuations)].is_end_headers
+    else
+        @assert headers.is_end_headers
+    end
+
+    stream.sending_headers = HPack.decode(connection.dynamic_table, IOBuffer(block))
+
+    stream.state = RESERVED_REMOTE
+end
+
+function send_stream_push_promise(connection::Connection, buf::IOBuffer,
+                                  stream_identifier::Stream)
+    stream = get_stream(stream_identifier)
+
+    block = HPACK.encode(connection.dynamic_table, stream.receiving_headers; huffman=false)
+    frame = PushPromiseFrame(true, stream_identifier, block)
+
+    write(buf, Frame.encode(frame))
+
+    stream.state = RESERVED_LOCAL
+end
+
+## Window Update Handlers
+
+function recv_stream_window_update(connection::Connection, headers::WindowUpdateFrame)
+    stream = get_stream(stream_identifier)
+
+    stream.window_size += headers.window_size_increment
+end
