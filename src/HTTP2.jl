@@ -52,4 +52,52 @@ function request(dest, port, url)
     return Session.get_stream(connection, UInt32(13))
 end
 
+function handle_util_frames_until(connection)
+    received = Session.recv_next(connection)
+    while typeof(received) == Frame.SettingsFrame || typeof(received) == Frame.PriorityFrame
+        # do nothing for now
+        received = Session.recv_next(connection)
+    end
+    return received
+end
+
+function serve(port, body)
+    server = listen(port)
+
+    while(true)
+        buffer = accept(server)
+
+        connection = Session.new_connection(buffer; isclient=false)
+        ## Recv the client preface, and send an empty SETTING frame.
+
+        @show Session.recv_next(connection)
+        ## Recv the client SETTING frame.
+
+        headers_frame = handle_util_frames_until(connection)
+        ## Recv the ack SETTING and PRIORITY frame until we find a HEADERS frame.
+
+        stream = Session.get_stream(connection, headers_frame.stream_identifier)
+
+        for i = 1:length(stream.received_headers)
+            if stream.received_headers[i][1] == b":path"
+                print("Found path, its value is: ")
+                print(ascii(stream.received_headers[i][2]))
+                print("\n")
+            end
+        end
+
+        Session.send!(connection, headers_frame.stream_identifier,
+                      [(b":status", b"200"),
+                       (b"server", b"HTTP2.jl"),
+                       (b"date", b"Thu, 02 Jun 2016 19:00:13 GMT"),
+                       (b"content-type", b"text/html; charset=UTF-8")], body)
+
+        sending_stream = Session.send_next(connection)
+        while !isnull(sending_stream)
+            sending_stream = Session.send_next(connection)
+        end
+        ## We are done!
+    end
+end
+
 end # module

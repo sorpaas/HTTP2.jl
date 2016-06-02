@@ -19,7 +19,7 @@ end
 
 function encode_data(frame)
     typ = DATA
-    flags = 0x0 | (frame.is_end_stream ? 0x8 : 0x0)
+    flags = 0x0 | (frame.is_end_stream ? 0x1 : 0x0)
     stream_identifier = frame.stream_identifier
 
     return wrap_payload(frame.data, typ, flags, frame.stream_identifier)

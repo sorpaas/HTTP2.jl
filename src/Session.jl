@@ -157,7 +157,7 @@ function select_next(streams::Array{HTTPStream, 1}, ignored::Array{HTTPStream, 1
         return Nullable(streams[1])
     end
 
-    if length(streams) >= length(ignored)
+    if length(ignored) >= length(streams)
         return Nullable{HTTPStream}()
     end
 
@@ -196,15 +196,14 @@ function send_next(connection::HTTPConnection; ignored=Array{HTTPStream, 1}())
         # OPEN -> HALF_CLOSED_LOCAL
 
     elseif stream.state == HALF_CLOSED_REMOTE
-        send_stream_headers_continuations(connection, stream.stream_identifier)
         send_stream_data(connection, stream.stream_identifier)
-
+        # HALF_CLOSED_REMOTE -> CLOSED
     else
         push!(ignored, stream)
         return send_next(connection; ignored=ignored)
     end
 
-    return stream
+    return Nullable(stream)
 end
 
 end

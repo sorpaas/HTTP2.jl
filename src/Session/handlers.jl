@@ -25,7 +25,6 @@ function recv_stream_headers_continuations(connection::HTTPConnection, headers::
 
     stream.received_headers = HPack.decode(connection.dynamic_table, IOBuffer(block))
 
-    @show stream
     if stream.state == IDLE
         stream.state = OPEN
         if headers.is_end_stream
@@ -60,6 +59,10 @@ function send_stream_headers_continuations(connection::HTTPConnection, stream_id
         end
     elseif stream.state == RESERVED_LOCAL
         stream.state = HALF_CLOSED_REMOTE
+    elseif stream.state == HALF_CLOSED_REMOTE
+        if is_end_stream
+            stream.state = CLOSED
+        end
     else
         @assert false
     end
