@@ -11,7 +11,7 @@ function recv_stream_headers_continuations(connection::HTTPConnection, headers::
                          headers.weight.value)
     end
 
-    block = similar(headers.fragment)
+    block = copy(headers.fragment)
 
     if length(continuations) > 0
         for i = 1:length(continuations)
