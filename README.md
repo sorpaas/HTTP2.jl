@@ -4,6 +4,26 @@
 
 A HTTP2 support library. It currently implements HTTP Frame encoders and decoders. A full stream and connection handler is planned.
 
+## Sending Requests
+
+To test this library, you can start a HTTP2 server by using `nghttp2` with the
+following command:
+
+```
+nghttpd --verbose --no-tls 9000
+```
+
+After that, run:
+
+```
+import HTTP2
+
+stream = HTTP2.request(ip"127.0.0.1", 9000, b"/")
+```
+
+`stream.received_headers` now contains the response headers and
+`stream.received_body` contains the response body.
+
 ## Frame
 
 You can do `using HTTP2.Frame` to import the library. After that, a `encode` function and a `decode` function are available. The `encode` function takes a typed frame into its binary form. The `decode` function takes an IO buffer, and returns a typed frame.
