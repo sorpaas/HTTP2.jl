@@ -1,7 +1,5 @@
 # HTTP2
 
-[![Build Status](https://travis-ci.org/sorpaas/HTTP2.jl.svg?branch=master)](https://travis-ci.org/sorpaas/HTTP2.jl)
-
 A HTTP2 support library. It currently implements HTTP Frame encoders and decoders. A full stream and connection handler is planned.
 
 ## Sending Requests
