@@ -13,7 +13,7 @@ nghttpd --verbose --no-tls 9000
 
 After that, run:
 
-```
+```julia
 import HTTP2
 
 stream = HTTP2.request(ip"127.0.0.1", 9000, b"/")
@@ -21,6 +21,20 @@ stream = HTTP2.request(ip"127.0.0.1", 9000, b"/")
 
 `stream.received_headers` now contains the response headers and
 `stream.received_body` contains the response body.
+
+## Serving Responses
+
+To test the HTTP server, import `HTTP2` namespace and run:
+
+```julia
+HTTP2.serve(8000, b"<h1>Hello, world!</h1>")
+```
+
+Now you can use HTTP2 client, for example `nghttp2` to get the result:
+
+```
+nghttp http://127.0.0.1:8000
+```
 
 ## Frame
 
