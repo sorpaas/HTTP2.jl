@@ -13,8 +13,8 @@ using Base.Test
                                               HeadersFrame(false, false, true, 0x51,
                                                            Nullable(false), Nullable(0x50),
                                                            Nullable(0x1), b"test")
-@test decode(IOBuffer(encode(PingFrame(false, 0x51, b"testtest")))) ==
-    PingFrame(false, 0x51, b"testtest")
+@test decode(IOBuffer(encode(PingFrame(false, b"testtest")))) ==
+    PingFrame(false, b"testtest")
 @test decode(IOBuffer(encode(PriorityFrame(0x51, false, 0x50, 0x2)))) ==
     PriorityFrame(0x51, false, 0x50, 0x2)
 @test decode(IOBuffer(encode(PushPromiseFrame(false, 0x51, 0x54, b"test")))) ==

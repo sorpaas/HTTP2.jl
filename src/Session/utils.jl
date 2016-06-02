@@ -1,4 +1,4 @@
-function get_stream(connection::Connection, stream_identifier::UInt32)
+function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
     assert!(stream_identifier != 0x0)
 
     for i = 1:length(connection.streams)
@@ -15,7 +15,7 @@ function get_stream(connection::Connection, stream_identifier::UInt32)
     return stream
 end
 
-function get_dependency_parent(connection::Connection, stream_identifier::UInt32)
+function get_dependency_parent(connection::HTTPConnection, stream_identifier::UInt32)
     stream = get_stream(connection, stream_identifier)
 
     if isnull(stream.priority)
@@ -25,7 +25,7 @@ function get_dependency_parent(connection::Connection, stream_identifier::UInt32
     end
 end
 
-function get_dependency_children(connection::Connection, stream_identifier::UInt32)
+function get_dependency_children(connection::HTTPConnection, stream_identifier::UInt32)
     result = Array{Stream}()
 
     for i = 1:length(connection.streams)
@@ -40,7 +40,7 @@ function get_dependency_children(connection::Connection, stream_identifier::UInt
     return result
 end
 
-function handle_priority!(connection::Connection, stream_identifier::UInt32,
+function handle_priority!(connection::HTTPConnection, stream_identifier::UInt32,
                           exclusive::Bool, dependent_stream_identifier::UInt32, weight::UInt8)
     stream = get_stream(connection, stream_identifier)
 
