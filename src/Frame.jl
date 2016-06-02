@@ -1,5 +1,5 @@
 module Frame
-import Base: ==
+import Base: ==, AbstractIOBuffer
 
 @enum FRAME_TYPES DATA=0x0 HEADERS=0x1 PRIORITY=0x2 RST_STREAM=0x3 SETTINGS=0x4 PUSH_PROMISE=0x5 PING=0x6 GOAWAY=0x7 WINDOW_UPDATE=0x8 CONTINUATION=0x9
 
@@ -10,7 +10,7 @@ immutable FrameHeader
     stream_identifier::UInt32
 end
 
-function decode_header(buf::IOBuffer)
+function decode_header(buf)
     length_arr = readbytes(buf, 3)
     length = UInt32(length_arr[1]) << 16 + UInt32(length_arr[2]) << 8 + UInt32(length_arr[3])
 
@@ -55,7 +55,7 @@ include("Frame/goaway.jl")
 include("Frame/window_update.jl")
 include("Frame/continuation.jl")
 
-function decode(buf::IOBuffer)
+function decode(buf)
     header = decode_header(buf)
     payload = readbytes(buf, header.length)
 

@@ -1,14 +1,14 @@
 ## Headers Handlers
 
-function recv_stream_header_continuations(connection::HTTPConnection, headers::HeadersFrame,
+function recv_stream_headers_continuations(connection::HTTPConnection, headers::HeadersFrame,
                                           continuations::Array{ContinuationFrame, 1})
-    stream_identifier = header.stream_identifier
-    stream = get_stream(stream_identifier)
+    stream_identifier = headers.stream_identifier
+    stream = get_stream(connection, stream_identifier)
 
-    if header.is_priority
-        handle_priority!(connection, stream_identifier, header.exclusive.value,
-                         header.dependent_stream_identifier.value,
-                         header.weight.value)
+    if headers.is_priority
+        handle_priority!(connection, stream_identifier, headers.exclusive.value,
+                         headers.dependent_stream_identifier.value,
+                         headers.weight.value)
     end
 
     block = similar(headers.fragment)
@@ -25,24 +25,29 @@ function recv_stream_header_continuations(connection::HTTPConnection, headers::H
 
     stream.received_headers = HPack.decode(connection.dynamic_table, IOBuffer(block))
 
+    @show stream
     if stream.state == IDLE
         stream.state = OPEN
-        if header.is_end_stream
+        if headers.is_end_stream
             stream.state = HALF_CLOSED_REMOTE
         end
     elseif stream.state == RESERVED_REMOTE
         stream.state = HALF_CLOSED_LOCAL
+    elseif stream.state == HALF_CLOSED_LOCAL
+        if headers.is_end_stream
+            stream.state = CLOSED
+        end
     else
         @assert false
     end
 end
 
-function send_stream_header_continuations(connection::HTTPConnection, stream_identifier::UInt32)
+function send_stream_headers_continuations(connection::HTTPConnection, stream_identifier::UInt32)
     buffer = connection.buffer
-    stream = get_stream(stream_identifier)
+    stream = get_stream(connection, stream_identifier)
 
-    block = HPACK.encode(connection.dynamic_table, stream.sending_headers; huffman=false)
-    is_end_stream = length(stream.body) == 0
+    block = HPack.encode(connection.dynamic_table, stream.sending_headers; huffman=false)
+    is_end_stream = length(stream.sending_body) == 0
     frame = HeadersFrame(is_end_stream, true, false, stream_identifier, Nullable{Bool}(),
                          Nullable{UInt32}(), Nullable{UInt8}(), block)
 
@@ -63,7 +68,7 @@ end
 ## Data Handlers
 
 function recv_stream_data(connection::HTTPConnection, data::DataFrame)
-    stream = get_stream(data.stream_identifier)
+    stream = get_stream(connection, data.stream_identifier)
 
     append!(stream.received_body, data.data)
 
@@ -82,7 +87,7 @@ end
 
 function send_stream_data(connection::HTTPConnection, stream_identifier::UInt32)
     buffer = connection.buffer
-    stream = get_stream(stream_identifier)
+    stream = get_stream(connection, stream_identifier)
 
     is_end_stream = true
     frame = DataFrame(stream_identifier, is_end_stream, stream.sending_body)
@@ -113,7 +118,7 @@ end
 ## Rst Stream Handlers
 
 function recv_stream_rst_stream(connection::HTTPConnection, rstStream::RstStreamFrame)
-    stream = get_stream(rstStream.stream_identifier)
+    stream = get_stream(connection, rstStream.stream_identifier)
 
     stream.state = CLOSED
 end
@@ -121,7 +126,7 @@ end
 ## Push Promise Handlers
 
 function recv_stream_push_promise(connection::HTTPConnection, headers::PushPromiseFrame, continuations::Array{ContinuationFrame, 1})
-    stream = get_stream(headers.stream_identifier)
+    stream = get_stream(connection, headers.stream_identifier)
 
     block = similar(headers.fragment)
 
@@ -142,7 +147,7 @@ end
 
 function send_stream_push_promise(connection::HTTPConnection, stream_identifier::UInt32)
     buffer = connection.buffer
-    stream = get_stream(stream_identifier)
+    stream = get_stream(connection, stream_identifier)
 
     block = HPACK.encode(connection.dynamic_table, stream.receiving_headers; huffman=false)
     frame = PushPromiseFrame(true, stream_identifier, block)
@@ -155,7 +160,7 @@ end
 ## Window Update Handlers
 
 function recv_stream_window_update(connection::HTTPConnection, headers::WindowUpdateFrame)
-    stream = get_stream(stream_identifier)
+    stream = get_stream(connection, stream_identifier)
 
     stream.window_size += headers.window_size_increment
 end

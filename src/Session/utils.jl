@@ -1,5 +1,15 @@
+function stream_states(connection::HTTPConnection)
+    result = Array{Tuple{UInt32, STREAM_STATE}, 1}()
+
+    for i = 1:length(connection.streams)
+        push!(result, (connection.streams[i].stream_identifier, connection.streams[i].state))
+    end
+
+    return result
+end
+
 function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
-    assert!(stream_identifier != 0x0)
+    @assert stream_identifier != 0x0
 
     for i = 1:length(connection.streams)
         if connection.streams[i].stream_identifier == stream_identifier
@@ -7,10 +17,10 @@ function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
         end
     end
 
-    stream = Stream(stream_identifier, IDLE,
-                    Array{HPack.Header, 1}(), Array{UInt8, 1}(),
-                    Array{HPack.Header, 1}(), Array{UInt8, 1}(),
-                    65535, Nullable{Priority}())
+    stream = HTTPStream(stream_identifier, IDLE,
+                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
+                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
+                        65535, Nullable{Priority}())
     push!(connection.streams, stream)
     return stream
 end

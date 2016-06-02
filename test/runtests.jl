@@ -1,3 +1,4 @@
+import HTTP2
 using HTTP2.Frame
 using Base.Test
 
@@ -24,3 +25,9 @@ using Base.Test
 @test decode(IOBuffer(encode(SettingsFrame(true, Nullable())))) == SettingsFrame(true, Nullable())
 @test decode(IOBuffer(encode(WindowUpdateFrame(0x51, 0x2)))) ==
     WindowUpdateFrame(0x51, 0x2)
+
+## Run `nghttpd --verbose --no-tls 9000` to make this test pass
+stream = HTTP2.request(ip"127.0.0.1", 9000, b"/")
+
+@show stream.received_headers
+@show stream.received_body

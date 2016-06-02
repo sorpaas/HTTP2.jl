@@ -1,5 +1,6 @@
-module Stream
+module Session
 
+import HPack
 import HPack: DynamicTable, Header
 import HTTP2.Frame
 import HTTP2.Frame: ContinuationFrame, DataFrame, GoawayFrame, HeadersFrame, PingFrame, PriorityFrame, PushPromiseFrame, RstStreamFrame, SettingsFrame, WindowUpdateFrame
@@ -26,20 +27,26 @@ type HTTPConnection
     dynamic_table::DynamicTable
     streams::Array{HTTPStream, 1}
     window_size::UInt32
-    buffer::IOBuffer
+    buffer::TCPSocket
 end
 
-function new_connection(buffer::IOBuffer; isclient::Bool=true)
-    HTTPConnection(new_dynamic_table(), Array{Stream, 1}, 65535, buffer)
+include("Session/utils.jl")
+include("Session/handlers.jl")
+
+function new_connection(buffer::TCPSocket; isclient::Bool=true)
+    connection = HTTPConnection(HPack.new_dynamic_table(), Array{HTTPStream, 1}(), 65535, buffer)
 
     CLIENT_PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
     if isclient
-        write(outbuf, CLIENT_PREFACE)
+        write(buffer, CLIENT_PREFACE)
+        write(buffer, Frame.encode(SettingsFrame(false, Nullable(Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}()))))
     else
         client_preface = readbytes(buffer, length(CLIENT_PREFACE))
         @assert client_preface == CLIENT_PREFACE
-        write(buffer, Frame.encode(SettingsFrame(false, Nullable(Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}))))
+        write(buffer, Frame.encode(SettingsFrame(false, Nullable(Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}()))))
     end
+
+    return connection
 end
 
 function send!(connection::HTTPConnection, stream_identifier::UInt32, headers::Array{Header, 1}, body::Array{UInt8, 1})
@@ -47,7 +54,7 @@ function send!(connection::HTTPConnection, stream_identifier::UInt32, headers::A
     stream = get_stream(connection, stream_identifier)
     stream.sending_headers = headers
     stream.sending_body = body
-    send_stream_header_continuation(connection, stream_identifier)
+    send_stream_headers_continuations(connection, stream_identifier)
 end
 
 function promise!(connection::HTTPConnection, stream_identifier::UInt32,
@@ -64,13 +71,17 @@ function handle_setting(connection::HTTPConnection, key::Frame.SETTING_IDENTIFIE
     if key == Frame.SETTINGS_HEADER_TABLE_SIZE
         HPack.set_max_table_size!(connection.dynamic_table, Int(value))
     else
-        assert!(false) # Not yet implemented
+        ## TODO implement this
     end
 end
 
 function recv_next(connection::HTTPConnection)
     buffer = connection.buffer
-    frame = decode(buffer)
+    frame = Frame.decode(buffer)
+
+    if frame == false
+        return false
+    end
 
     if typeof(frame) == DataFrame
         @assert frame.stream_identifier != 0x0
@@ -79,16 +90,16 @@ function recv_next(connection::HTTPConnection)
         @assert frame.stream_identifier != 0x0
 
         continuations = Array{ContinuationFrame, 1}()
-        while frame.is_end_headers ||
-            (!frame.is_end_headers && length(continuations) == 0) ||
-            continuations[length(continuations)].is_end_headers
+        while !(frame.is_end_headers ||
+                (!frame.is_end_headers && length(continuations) == 0) ||
+                continuations[length(continuations)].is_end_headers)
 
-            continuation = Frame.decode(inbuf)
+            continuation = Frame.decode(buffer)
             @assert typeof(continuation) == ContinuationFrame &&
                 continuation.stream_identifier == frame.stream_identifier
             push!(continuations, continuation)
         end
-        recv_stream_headers_continuation(connection, frame, continuations)
+        recv_stream_headers_continuations(connection, frame, continuations)
     elseif typeof(frame) == PriorityFrame
         @assert frame.stream_identifier != 0x0
 
@@ -98,8 +109,6 @@ function recv_next(connection::HTTPConnection)
 
         recv_stream_rst_stream(connection, frame)
     elseif typeof(frame) == SettingsFrame
-        @assert frame.stream_identifier == 0x0
-
         if !frame.is_ack
             parameters = frame.parameters.value
             if length(parameters) > 0
@@ -108,15 +117,15 @@ function recv_next(connection::HTTPConnection)
                 end
             end
 
-            write(buffer, SettingsFrame(true, Nullable{Tuple{Frame.SETTING_IDENTIFIER, UInt32}}()))
+            write(buffer, Frame.encode(SettingsFrame(true, Nullable{Tuple{Frame.SETTING_IDENTIFIER, UInt32}}())))
         end
     elseif typeof(frame) == PushPromiseFrame
         @assert frame.stream_identifier != 0x0
 
         continuations = Array{ContinuationFrame, 1}()
-        while frame.is_end_headers ||
-            (!frame.is_end_headers && length(continuations) == 0) ||
-            continuations[length(continuations)].is_end_headers
+        while !(frame.is_end_headers ||
+                (!frame.is_end_headers && length(continuations) == 0) ||
+                continuations[length(continuations)].is_end_headers)
 
             continuation = Frame.decode(buffer)
             assert!((typeof(continuation) == ContinuationFrame) &&
@@ -125,8 +134,6 @@ function recv_next(connection::HTTPConnection)
         end
         recv_stream_push_promise(connection, frame, continuations)
     elseif typeof(frame) == PingFrame
-        @assert frame.stream_identifier == 0x0
-
         write(buffer, PingFrame(true, frame.data))
     elseif typeof(frame) == GoawayFrame
         @assert false
@@ -139,13 +146,19 @@ function recv_next(connection::HTTPConnection)
     else
         @assert false
     end
+
+    return frame
 end
 
 function select_next(streams::Array{HTTPStream, 1}, ignored::Array{HTTPStream, 1})
-    @assert length(stream) > 0
+    @assert length(streams) > 0
 
     if length(ignored) == 0
         return Nullable(streams[1])
+    end
+
+    if length(streams) >= length(ignored)
+        return Nullable{HTTPStream}()
     end
 
     for i = 1:length(streams)
@@ -160,20 +173,20 @@ function select_next(streams::Array{HTTPStream, 1}, ignored::Array{HTTPStream, 1
         end
     end
 
-    return Nullable{Stream}()
+    return Nullable{HTTPStream}()
 end
 
-function send_next(connection::HTTPConnection; ignored=Array{Stream, 1}())
+function send_next(connection::HTTPConnection; ignored=Array{HTTPStream, 1}())
     stream_nullable = select_next(connection.streams, ignored)
 
     if isnull(stream_nullable)
-        return
+        return Nullable{HTTPStream}()
     end
 
     stream = stream_nullable.value
 
     if stream.state == RESERVED_LOCAL
-        send_stream_header_continuations(connection, stream.stream_identifier)
+        send_stream_headers_continuations(connection, stream.stream_identifier)
         # RESERVED_LOCAL -> HALF_CLOSED_REMOTE
 
         send_stream_data(connection, stream.streaam_identifier)
@@ -183,16 +196,15 @@ function send_next(connection::HTTPConnection; ignored=Array{Stream, 1}())
         # OPEN -> HALF_CLOSED_LOCAL
 
     elseif stream.state == HALF_CLOSED_REMOTE
-        send_stream_header_continuations(connection, stream.stream_identifier)
+        send_stream_headers_continuations(connection, stream.stream_identifier)
         send_stream_data(connection, stream.stream_identifier)
 
     else
         push!(ignored, stream)
         return send_next(connection; ignored=ignored)
     end
-end
 
-include("Session/utils.jl")
-include("Session/handlers.jl")
+    return stream
+end
 
 end
