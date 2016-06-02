@@ -6,10 +6,12 @@ os:
 julia:
   - release
   - nightly
-addons:
-  apt:
-    packages:
-      - nghttp2
+sudo: required
+dist: trusty
+before_install:
+  - sudo add-apt-repository ppa:nghttp2 -y
+  - sudo apt-get update -q
+  - sudo apt-get install nghttp2 -y
 notifications:
   email: false
 script:
