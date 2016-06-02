@@ -6,9 +6,13 @@ os:
 julia:
   - release
   - nightly
+addons:
+  apt:
+    packages:
+      - nghttp2
 notifications:
   email: false
-# uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("HTTP2"); Pkg.test("HTTP2"; coverage=true)'
+script:
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - nghttpd --verbose --no-tls --padding 0 --hexdump --daemon -d '/' 9000
+  - julia -e 'Pkg.clone(pwd()); Pkg.build("HTTP2"); Pkg.test("HTTP2"; coverage=true)'
