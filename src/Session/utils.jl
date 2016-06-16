@@ -8,23 +8,6 @@ function stream_states(connection::HTTPConnection)
     return result
 end
 
-function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
-    @assert stream_identifier != 0x0
-
-    for i = 1:length(connection.streams)
-        if connection.streams[i].stream_identifier == stream_identifier
-            return connection.streams[i]
-        end
-    end
-
-    stream = HTTPStream(stream_identifier, IDLE,
-                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
-                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
-                        65535, Nullable{Priority}())
-    push!(connection.streams, stream)
-    return stream
-end
-
 function get_dependency_parent(connection::HTTPConnection, stream_identifier::UInt32)
     stream = get_stream(connection, stream_identifier)
 
