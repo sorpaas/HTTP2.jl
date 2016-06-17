@@ -1,3 +1,21 @@
+function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
+    @assert stream_identifier != 0x0
+
+    for i = 1:length(connection.streams)
+        if connection.streams[i].stream_identifier == stream_identifier
+            return connection.streams[i]
+        end
+    end
+
+    stream = HTTPStream(stream_identifier, IDLE,
+                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
+                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
+                        65535, Nullable{Priority}(), Channel{Any}())
+
+    push!(connection.streams, stream)
+    return stream
+end
+
 function stream_states(connection::HTTPConnection)
     result = Array{Tuple{UInt32, STREAM_STATE}, 1}()
 
@@ -46,4 +64,12 @@ function handle_priority!(connection::HTTPConnection, stream_identifier::UInt32,
     end
 
     stream.priority = Nullable(Priority(dependent_stream_identifier, weight))
+end
+
+function handle_setting!(connection::HTTPConnection, key::Frame.SETTING_IDENTIFIER, value::UInt32)
+    if key == Frame.SETTINGS_HEADER_TABLE_SIZE
+        HPack.set_max_table_size!(connection.dynamic_table, Int(value))
+    else
+        ## TODO implement this
+    end
 end

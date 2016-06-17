@@ -16,13 +16,6 @@ function request(dest, port, url)
 
     ## Create a HTTPConnection object
     connection = Session.new_connection(buffer; isclient=true)
-    ## Send the preface, and an empty SETTINGS frame.
-
-    @show Session.recv_next(connection)
-    ## Recv the server preface SETTINGS frame
-
-    ## Recv the ack SETTINGS frame
-    @show Session.recv_next(connection)
 
     ## Create a request with headers
     headers = [(b":method", b"GET"),
@@ -33,23 +26,9 @@ function request(dest, port, url)
                (b"accept-encoding", b"gzip, deflate"),
                (b"user-agent", b"HTTP2.jl")]
 
-    Session.send!(connection, UInt32(13), headers, Array{UInt8, 1}())
-    ## Send a header frame without a body.
-    ## Status change from IDLE to HALF_CLOSED_LOCAL.
+    Session.put_act!(connection, Session.ActSendHeaders(UInt32(13), headers, true))
 
-    stream = Session.get_stream(connection, UInt32(13))
-    @show stream.state
-
-    ## Recv the headers
-    @show Session.recv_next(connection)
-
-    ## Recv the body
-    @show Session.recv_next(connection)
-
-    ## Finally, close the connection
-    close(buffer)
-
-    return Session.get_stream(connection, UInt32(13))
+    return (Session.take_evt!(connection), Session.take_evt!(connection))
 end
 
 function handle_util_frames_until(connection)
@@ -70,32 +49,17 @@ function serve(port, body)
         connection = Session.new_connection(buffer; isclient=false)
         ## Recv the client preface, and send an empty SETTING frame.
 
-        @show Session.recv_next(connection)
-        ## Recv the client SETTING frame.
+        headers_evt = Session.take_evt!(connection)
+        stream_identifier = headers_evt.stream_identifier
 
-        headers_frame = handle_util_frames_until(connection)
-        ## Recv the ack SETTING and PRIORITY frame until we find a HEADERS frame.
+        sending_headers = [(b":status", b"200"),
+                           (b"server", b"HTTP2.jl"),
+                           (b"date", b"Thu, 02 Jun 2016 19:00:13 GMT"),
+                           (b"content-type", b"text/html; charset=UTF-8")]
 
-        stream = Session.get_stream(connection, headers_frame.stream_identifier)
+        Session.put_act!(connection, Session.ActSendHeaders(stream_identifier, sending_headers, true))
+        Session.put_act!(connection, Session.ActSendData(stream_identifier, body, true))
 
-        for i = 1:length(stream.received_headers)
-            if stream.received_headers[i][1] == b":path"
-                print("Found path, its value is: ")
-                print(ascii(stream.received_headers[i][2]))
-                print("\n")
-            end
-        end
-
-        Session.send!(connection, headers_frame.stream_identifier,
-                      [(b":status", b"200"),
-                       (b"server", b"HTTP2.jl"),
-                       (b"date", b"Thu, 02 Jun 2016 19:00:13 GMT"),
-                       (b"content-type", b"text/html; charset=UTF-8")], body)
-
-        sending_stream = Session.send_next(connection)
-        while !isnull(sending_stream)
-            sending_stream = Session.send_next(connection)
-        end
         ## We are done!
     end
 end
