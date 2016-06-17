@@ -83,6 +83,10 @@ function process_channel_act(connection::HTTPConnection)
 
     act = take!(channel_evt_act)
 
+    if connection.next_free_stream_identifier <= act.stream_identifier
+        connection.next_free_stream_identifier = act.stream_identifier + 2
+    end
+
     if typeof(act) == ActSendHeaders
         frame = send_stream_headers(connection, act)
         handle_stream_state!(connection, frame, true)
@@ -144,6 +148,10 @@ function process_channel_evt(connection::HTTPConnection)
     ## Frames where stream identifier is not 0x0
     @assert frame.stream_identifier != 0x0
     stream = get_stream(connection, frame.stream_identifier)
+
+    if connection.next_free_stream_identifier <= frame.stream_identifier
+        connection.next_free_stream_identifier = frame.stream_identifier + 1
+    end
 
     if typeof(frame) == DataFrame
         recv_stream_data(connection, frame)

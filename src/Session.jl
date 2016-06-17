@@ -64,6 +64,7 @@ type HTTPConnection
     streams::Array{HTTPStream, 1}
     window_size::UInt32
     isclient::Bool
+    next_free_stream_identifier::UInt32
 
     channel_act::Channel{Any} # Process actions
     channel_act_raw::Channel{Any} # Process raw frames
@@ -84,6 +85,7 @@ function new_connection(buffer::TCPSocket; isclient::Bool=true)
                                 Array{HTTPStream, 1}(),
                                 65535,
                                 isclient,
+                                isclient ? 1 : 2,
 
                                 Channel{Any}(),
                                 Channel{Any}(),
