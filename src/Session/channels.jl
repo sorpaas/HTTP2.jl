@@ -14,6 +14,9 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer::TCPSocket
 
     @async begin
         while true
+            if eof(buffer)
+                return
+            end
             frame = Frame.decode(buffer)
 
             # Abstract atom headers frame away
@@ -136,7 +139,7 @@ function process_channel_evt(connection::HTTPConnection)
         return
     end
     if typeof(frame) == GoawayFrame
-        @assert false
+        @assert frame.error_code == 0x0
         return
     end
     if typeof(frame) == WindowUpdateFrame && frame.stream_identifier == 0x0
