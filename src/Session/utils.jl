@@ -8,9 +8,7 @@ function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
     end
 
     stream = HTTPStream(stream_identifier, IDLE,
-                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
-                        Array{HPack.Header, 1}(), Array{UInt8, 1}(),
-                        65535, Nullable{Priority}(), Channel{Any}())
+                        65535, Nullable{Priority}())
 
     push!(connection.streams, stream)
     return stream

@@ -72,7 +72,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer::TCPSocket
         end
     end
 
-    put!(channel_act_raw, SettingsFrame(false, Nullable{Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}}()))
+    put!(channel_act_raw, SettingsFrame(false, Nullable(Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}())))
 end
 
 function process_channel_act(connection::HTTPConnection)
@@ -81,7 +81,7 @@ function process_channel_act(connection::HTTPConnection)
     channel_evt_raw = connection.channel_evt_raw
     channel_evt = connection.channel_evt
 
-    act = take!(channel_evt_act)
+    act = take!(channel_act)
 
     if connection.next_free_stream_identifier <= act.stream_identifier
         connection.next_free_stream_identifier = act.stream_identifier + 2
@@ -181,8 +181,16 @@ function process_channel_evt(connection::HTTPConnection)
     @assert false
 end
 
+function select(waitset::Array)
+    c = Channel(length(waitset))
+    for w in waitset
+        @async put!(c, (wait(w); w))
+    end
+    take!(c)
+end
+
 function initialize_loop_async(connection::HTTPConnection, buffer::TCPSocket)
-    initialize_raw_loop_async(connections, buffer)
+    initialize_raw_loop_async(connection, buffer)
 
     channel_act_raw = connection.channel_act_raw
     channel_act = connection.channel_act
@@ -191,11 +199,10 @@ function initialize_loop_async(connection::HTTPConnection, buffer::TCPSocket)
 
     @async begin
         while true
-            wait(@or(channel_evt_raw, channel_act))
-            while isready(channel_evt_raw)
+            c = select([channel_evt_raw, channel_act])
+            if c == channel_evt_raw
                 process_channel_evt(connection)
-            end
-            while isready(channel_act)
+            else
                 process_channel_act(connection)
             end
         end

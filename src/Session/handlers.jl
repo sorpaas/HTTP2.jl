@@ -19,7 +19,7 @@ function send_stream_headers(connection::HTTPConnection, act::ActSendHeaders)
     stream_identifier = act.stream_identifier
     stream = get_stream(connection, stream_identifier)
 
-    block = HPack.encode(connection.dynamic_table, stream.sending_headers; huffman=false)
+    block = HPack.encode(connection.dynamic_table, act.headers; huffman=false)
     is_end_stream = act.is_end_stream
     frame = HeadersFrame(is_end_stream, true, false, stream_identifier, Nullable{Bool}(),
                          Nullable{UInt32}(), Nullable{UInt8}(), block)

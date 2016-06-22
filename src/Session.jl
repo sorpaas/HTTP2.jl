@@ -87,18 +87,24 @@ function new_connection(buffer::TCPSocket; isclient::Bool=true)
                                 isclient,
                                 isclient ? 1 : 2,
 
-                                Channel{Any}(),
-                                Channel{Any}(),
-                                Channel{Any}(),
-                                Channel{Any}())
+                                Channel(),
+                                Channel(),
+                                Channel(),
+                                Channel())
     initialize_loop_async(connection, buffer)
     return connection
 end
 
 function put_act!(connection::HTTPConnection, act)
+    if connection.next_free_stream_identifier <= act.stream_identifier
+        connection.next_free_stream_identifier = act.stream_identifier + 2
+    end
+
     put!(connection.channel_act, act)
 end
 
 function take_evt!(connection::HTTPConnection)
     return take!(connection.channel_evt)
+end
+
 end

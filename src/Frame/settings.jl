@@ -36,13 +36,13 @@ function encode_settings(frame)
         return wrap_payload([], SETTINGS, 0x1, 0x0)
     else
         payload = Array{UInt8, 1}()
-        for i = 1:length(frame.parameters.value)
-            append!(payload, [ UInt8(UInt16(frame.parameters.value[i][1]) >> 8);
-                               UInt8(UInt16(frame.parameters.value[i][1]) & 0x00ff);
-                               UInt8(frame.parameters.value[i][2] >> 24);
-                               UInt8(frame.parameters.value[i][2] >> 16 & 0x000000ff);
-                               UInt8(frame.parameters.value[i][2] >> 8 & 0x000000ff);
-                               UInt8(frame.parameters.value[i][2] & 0x000000ff) ])
+        for val in frame.parameters.value
+            append!(payload, [ UInt8(UInt16(val[1]) >> 8);
+                               UInt8(UInt16(val[1]) & 0x00ff);
+                               UInt8(val[2] >> 24);
+                               UInt8(val[2] >> 16 & 0x000000ff);
+                               UInt8(val[2] >> 8 & 0x000000ff);
+                               UInt8(val[2] & 0x000000ff) ])
         end
         return wrap_payload(payload, SETTINGS, 0x0, 0x0)
     end
