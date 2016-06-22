@@ -15,7 +15,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer::TCPSocket
     @async begin
         while true
             if eof(buffer)
-                return
+                break
             end
             frame = Frame.decode(buffer)
 
