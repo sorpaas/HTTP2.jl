@@ -21,7 +21,7 @@ function decode_settings(header, payload)
         return SettingsFrame(is_ack, Nullable{Array{Tuple{SETTING_IDENTIFIER, UInt32}}}())
     else
         parameters = Array{Tuple{SETTING_IDENTIFIER, UInt32}, 1}()
-        for i = 1:(length(payload) / 6)
+        for i = 1:div(length(payload), 6)
             identifier = UInt16(payload[(i-1)*6+1]) << 8 + UInt16(payload[(i-1)*6+2])
             value = UInt32(payload[(i-1)*6+3]) << 24 + UInt32(payload[(i-1)*6+4]) << 16 +
                 UInt32(payload[(i-1)*6+5]) << 8 + UInt32(payload[(i-1)*6+6])
