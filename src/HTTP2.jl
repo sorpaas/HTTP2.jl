@@ -43,8 +43,10 @@ end
 function serve(port, body)
     server = listen(port)
 
+    println("Server started.")
     while(true)
         buffer = accept(server)
+        println("Processing a connection ...")
 
         connection = Session.new_connection(buffer; isclient=false)
         ## Recv the client preface, and send an empty SETTING frame.
@@ -57,7 +59,7 @@ function serve(port, body)
                            (b"date", b"Thu, 02 Jun 2016 19:00:13 GMT"),
                            (b"content-type", b"text/html; charset=UTF-8")]
 
-        Session.put_act!(connection, Session.ActSendHeaders(stream_identifier, sending_headers, true))
+        Session.put_act!(connection, Session.ActSendHeaders(stream_identifier, sending_headers, false))
         Session.put_act!(connection, Session.ActSendData(stream_identifier, body, true))
 
         ## We are done!

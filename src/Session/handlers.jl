@@ -41,7 +41,7 @@ function send_stream_data(connection::HTTPConnection, act::ActSendData)
     stream = get_stream(connection, act.stream_identifier)
 
     is_end_stream = act.is_end_stream
-    frame = DataFrame(stream_identifier, is_end_stream, act.data)
+    frame = DataFrame(act.stream_identifier, is_end_stream, act.data)
 
     put!(connection.channel_act_raw, frame)
     return frame
