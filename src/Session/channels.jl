@@ -29,7 +29,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer::TCPSocket
                     push!(continuations, continuation)
                 end
 
-                fragment = copy(headers.fragment)
+                fragment = copy(frame.fragment)
                 if length(continuations) > 0
                     for i = 1:length(continuations)
                         append!(fragment, continuations[i].fragment)
@@ -115,7 +115,6 @@ function process_channel_evt(connection::HTTPConnection)
     channel_evt = connection.channel_evt
 
     frame = take!(channel_evt_raw)
-    handle_stream_state!(connection, frame, false)
 
     ## Frames where stream identifier is 0x0
 
@@ -147,6 +146,7 @@ function process_channel_evt(connection::HTTPConnection)
 
     ## Frames where stream identifier is not 0x0
     @assert frame.stream_identifier != 0x0
+    handle_stream_state!(connection, frame, false)
     stream = get_stream(connection, frame.stream_identifier)
 
     if connection.next_free_stream_identifier <= frame.stream_identifier

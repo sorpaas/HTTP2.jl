@@ -185,7 +185,7 @@ function handle_stream_state!(connection::HTTPConnection, frame, issend::Bool)
             return
         end
 
-        if typeof(frame) == RstStream
+        if typeof(frame) == RstStreamFrame
             stream.state = CLOSED
             return
         end

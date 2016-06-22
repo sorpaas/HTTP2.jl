@@ -28,7 +28,7 @@ function request(dest, port, url)
 
     Session.put_act!(connection, Session.ActSendHeaders(UInt32(13), headers, true))
 
-    return (Session.take_evt!(connection), Session.take_evt!(connection))
+    return (Session.take_evt!(connection).headers, Session.take_evt!(connection).data)
 end
 
 function handle_util_frames_until(connection)
