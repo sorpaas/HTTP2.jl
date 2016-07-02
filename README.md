@@ -1,5 +1,8 @@
 # HTTP2
 
+[![Build Status](https://travis-ci.org/sorpaas/HTTP2.jl.svg?branch=master)](https://travis-ci.org/sorpaas/HTTP2.jl)
+[![HTTPClient](http://pkg.julialang.org/badges/HTTP2_0.4.svg)](http://pkg.julialang.org/?pkg=HTTP2&ver=0.4)
+
 A HTTP2 support library. It currently implements HTTP Frame encoders and decoders. A full stream and connection handler is planned.
 
 ## Sending Requests
