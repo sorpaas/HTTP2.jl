@@ -67,6 +67,16 @@ end
 function handle_setting!(connection::HTTPConnection, key::Frame.SETTING_IDENTIFIER, value::UInt32)
     if key == Frame.SETTINGS_HEADER_TABLE_SIZE
         HPack.set_max_table_size!(connection.dynamic_table, Int(value))
+    elseif key == Frame.SETTINGS_ENABLE_PUSH
+
+    elseif key == Frame.SETTINGS_MAX_CONCURRENT_STREAMS
+
+    elseif key == Frame.SETTINGS_INITIAL_WINDOW_SIZE
+
+    elseif key == Frame.SETTINGS_MAX_FRAME_SIZE
+
+    elseif key == Frame.SETTINGS_MAX_HEADER_LIST_SIZE
+
     else
         ## TODO implement this
     end
