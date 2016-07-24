@@ -1,7 +1,8 @@
 module Session
 
 import HPack
-import HPack: DynamicTable, Header
+import HPack: DynamicTable
+import HttpCommon: Headers
 import HTTP2.Frame
 import HTTP2.Frame: ContinuationFrame, DataFrame, GoawayFrame, HeadersFrame, PingFrame, PriorityFrame, PushPromiseFrame, RstStreamFrame, SettingsFrame, WindowUpdateFrame
 
@@ -17,12 +18,12 @@ end
 immutable ActPromise
     stream_identifier::UInt32
     promised_stream_identifier::UInt32
-    headers::Array{Header, 1}
+    headers::Headers
 end
 
 immutable ActSendHeaders
     stream_identifier::UInt32
-    headers::Array{Header, 1}
+    headers::Headers
     is_end_stream::Bool
 end
 
@@ -37,12 +38,12 @@ end
 immutable EvtPromise
     stream_identifier::UInt32
     promised_stream_identifier::UInt32
-    headers::Array{Header, 1}
+    headers::Headers
 end
 
 immutable EvtRecvHeaders
     stream_identifier::UInt32
-    headers::Array{Header, 1}
+    headers::Headers
     is_end_stream::Bool
 end
 

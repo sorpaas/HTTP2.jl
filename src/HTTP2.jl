@@ -1,5 +1,7 @@
 module HTTP2
 
+import HttpCommon: Headers
+
 # package code goes here
 include("Frame.jl")
 include("Session.jl")
@@ -18,13 +20,13 @@ function request(dest, port, url)
     connection = Session.new_connection(buffer; isclient=true)
 
     ## Create a request with headers
-    headers = [(b":method", b"GET"),
-               (b":path", url),
-               (b":scheme", b"http"),
-               (b":authority", b"127.0.0.1:9000"),
-               (b"accept", b"*/*"),
-               (b"accept-encoding", b"gzip, deflate"),
-               (b"user-agent", b"HTTP2.jl")]
+    headers = Headers(":method" => "GET",
+                      ":path" => url,
+                      ":scheme" => "http",
+                      ":authority" => "127.0.0.1:9000",
+                      "accept" => "*/*",
+                      "accept-encoding" => "gzip, deflate",
+                      "user-agent" => "HTTP2.jl")
 
     Session.put_act!(connection, Session.ActSendHeaders(UInt32(13), headers, true))
 
@@ -54,10 +56,10 @@ function serve(port, body)
         headers_evt = Session.take_evt!(connection)
         stream_identifier = headers_evt.stream_identifier
 
-        sending_headers = [(b":status", b"200"),
-                           (b"server", b"HTTP2.jl"),
-                           (b"date", b"Thu, 02 Jun 2016 19:00:13 GMT"),
-                           (b"content-type", b"text/html; charset=UTF-8")]
+        sending_headers = Headers(":status" => "200",
+                                  "server" => "HTTP2.jl",
+                                  "date" => Dates.format(now(Dates.UTC), Dates.RFC1123Format),
+                                  "content-type" => "text/html; charset=UTF-8")
 
         Session.put_act!(connection, Session.ActSendHeaders(stream_identifier, sending_headers, false))
         Session.put_act!(connection, Session.ActSendData(stream_identifier, body, true))
