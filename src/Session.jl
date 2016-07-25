@@ -81,7 +81,7 @@ include("Session/states.jl")
 include("Session/handlers.jl")
 include("Session/channels.jl")
 
-function new_connection(buffer::TCPSocket; isclient::Bool=true)
+function new_connection(buffer; isclient::Bool=true)
     connection = HTTPConnection(HPack.new_dynamic_table(),
                                 Array{HTTPStream, 1}(),
                                 65535,

@@ -1,5 +1,5 @@
 
-function initialize_raw_loop_async(connection::HTTPConnection, buffer::TCPSocket)
+function initialize_raw_loop_async(connection::HTTPConnection, buffer)
     channel_act_raw = connection.channel_act_raw
     channel_evt_raw = connection.channel_evt_raw
 
@@ -192,7 +192,7 @@ function select(waitset::Array)
     take!(c)
 end
 
-function initialize_loop_async(connection::HTTPConnection, buffer::TCPSocket)
+function initialize_loop_async(connection::HTTPConnection, buffer)
     initialize_raw_loop_async(connection, buffer)
 
     channel_act_raw = connection.channel_act_raw
