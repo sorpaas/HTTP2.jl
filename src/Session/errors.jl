@@ -21,10 +21,12 @@ type InternalError
     message::AbstractString
 end
 
+type NullError end
+
 function goaway!(connection::HTTPConnection, error)
-    error_code = if isnull(error)
+    error_code = if typeof(error) == NullError
         0x0
-    elseif typeof(get(error)) == InternalError
+    elseif typeof(error) == InternalError
         0x2
     else
         0x1
@@ -35,4 +37,4 @@ function goaway!(connection::HTTPConnection, error)
     put!(connection.channel_act_raw, frame)
 end
 
-Base.close(connection::HTTPConnection) = goaway!(connection, Nullable())
+Base.close(connection::HTTPConnection) = goaway!(connection, NullError())

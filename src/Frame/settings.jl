@@ -2,8 +2,10 @@
 
 immutable SettingsFrame
     is_ack::Bool
-    parameters::Nullable{Array{Tuple{SETTING_IDENTIFIER, UInt32}}}
+    parameters::Nullable{Array{Tuple{SETTING_IDENTIFIER, UInt32}, 1}}
 end
+
+SettingsFrame() = SettingsFrame(false, Nullable(Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}()))
 
 ==(a::SettingsFrame, b::SettingsFrame) =
     a.is_ack == b.is_ack &&

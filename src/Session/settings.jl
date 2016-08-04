@@ -12,7 +12,7 @@ function handle_setting!(connection::HTTPConnection, key::Frame.SETTING_IDENTIFI
         end
         connection.settings.initial_window_size = UInt(value)
     elseif key == Frame.SETTINGS_MAX_FRAME_SIZE
-        connection.settings.max_fram_size = UInt(value)
+        connection.settings.max_frame_size = UInt(value)
     elseif key == Frame.SETTINGS_MAX_HEADER_LIST_SIZE
         connection.settings.max_header_list_size = Nullable(UInt(value))
     else

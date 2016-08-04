@@ -14,8 +14,8 @@ function decode_header(buf)
     length_arr = readbytes(buf, 3)
     length = UInt32(length_arr[1]) << 16 + UInt32(length_arr[2]) << 8 + UInt32(length_arr[3])
 
-    typ = FRAME_TYPES(read(buf, UInt8))
-    flags = read(buf, UInt8)
+    typ = FRAME_TYPES(readbytes(buf, 1)[1])
+    flags = readbytes(buf, 1)[1]
     stream_identifier_arr = readbytes(buf, 4)
     stream_identifier = UInt32(stream_identifier_arr[1]) << 24 + UInt32(stream_identifier_arr[2]) << 16 +
         UInt32(stream_identifier_arr[3]) << 8 + UInt32(stream_identifier_arr[4])
