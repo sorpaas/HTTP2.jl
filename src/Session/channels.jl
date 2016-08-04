@@ -15,7 +15,6 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
     @async begin
         while true
             if connection.closed
-                close(channel_evt_raw)
                 break
             end
 
@@ -92,7 +91,6 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
     @async begin
         while true
             if connection.closed
-                close(channel_act_raw)
                 break
             end
 
@@ -112,7 +110,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
                 encoded = Frame.encode(frame)
 
                 if typeof(frame) == DataFrame
-                    stream = get_stream(frame.stream_identifier)
+                    stream = get_stream(connection, frame.stream_identifier)
                     if stream.window_size < length(encoded)
                         put!(channel_act_raw, frame)
                         continue
@@ -273,8 +271,6 @@ function initialize_loop_async(connection::HTTPConnection, buffer)
         while true
             if connection.closed
                 put!(channel_evt, EvtGoaway())
-                close(channel_act)
-                close(channel_evt)
                 break
             end
 

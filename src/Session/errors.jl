@@ -35,6 +35,4 @@ function goaway!(connection::HTTPConnection, error)
     put!(connection.channel_act_raw, frame)
 end
 
-function close(connection::HTTPConnection)
-    goaway!(connection, Nullable())
-end
+Base.close(connection::HTTPConnection) = goaway!(connection, Nullable())
