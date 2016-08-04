@@ -132,8 +132,8 @@ end
 
 ## Window Update Handlers
 
-function recv_stream_window_update(connection::HTTPConnection, headers::WindowUpdateFrame)
-    stream = get_stream(connection, stream_identifier)
+function recv_stream_window_update(connection::HTTPConnection, frame::WindowUpdateFrame)
+    stream = get_stream(connection, frame.stream_identifier)
 
-    stream.window_size += headers.window_size_increment
+    stream.window_size += frame.window_size_increment
 end
