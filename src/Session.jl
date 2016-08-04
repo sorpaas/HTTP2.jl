@@ -62,12 +62,23 @@ type HTTPStream
     priority::Nullable{Priority}
 end
 
+type HTTPSettings
+    push_enabled::Bool
+    max_concurrent_streams::Nullable{UInt}
+    initial_window_size::UInt
+    max_frame_size::UInt
+    max_header_list_size::Nullable{UInt}
+end
+
+HTTPSettings() = HTTPSettings(true, Nullable(), 65535, 16384, Nullable())
+
 type HTTPConnection
     dynamic_table::DynamicTable
     streams::Array{HTTPStream, 1}
     window_size::UInt32
     isclient::Bool
     last_stream_identifier::UInt32
+    settings::HTTPSettings
     closed::Bool
 
     channel_act::Channel{Any} # Process actions
@@ -84,6 +95,7 @@ HTTPConnection(isclient) = HTTPConnection(HPack.new_dynamic_table(),
                                           65535,
                                           isclient,
                                           isclient ? 1 : 2,
+                                          HTTPSettings(),
                                           false,
 
                                           Channel(),
@@ -96,22 +108,19 @@ function next_free_stream_identifier(connection::HTTPConnection)
 end
 
 include("Session/utils.jl")
-include("Session/errors.jl")
 include("Session/settings.jl")
+include("Session/errors.jl")
 include("Session/states.jl")
 include("Session/handlers.jl")
 include("Session/channels.jl")
 
 function new_connection(buffer; isclient::Bool=true)
+    connection = HTTPConnection(isclient)
     initialize_loop_async(connection, buffer)
     return connection
 end
 
 function put_act!(connection::HTTPConnection, act)
-    if connection.next_free_stream_identifier <= act.stream_identifier
-        connection.next_free_stream_identifier = act.stream_identifier + 2
-    end
-
     put!(connection.channel_act, act)
 end
 

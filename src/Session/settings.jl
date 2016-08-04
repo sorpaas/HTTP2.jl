@@ -1,13 +1,3 @@
-type HTTPSettings
-    push_enabled::Bool
-    max_concurrent_streams::Nullable{UInt}
-    initial_window_size::UInt
-    max_frame_size::UInt
-    max_header_list_size::Nullable{UInt}
-end
-
-HTTPSettings() = HTTPSettings(true, Nullable(), 65535, 16384, Nullable())
-
 function handle_setting!(connection::HTTPConnection, key::Frame.SETTING_IDENTIFIER, value::UInt32)
     if key == Frame.SETTINGS_HEADER_TABLE_SIZE
         HPack.set_max_table_size!(connection.dynamic_table, Int(value))

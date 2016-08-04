@@ -24,10 +24,11 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
                 continue
             end
 
-            try
-                frame = Frame.decode(buffer)
+            frame = try
+                Frame.decode(buffer)
             catch
                 goaway!(connection, ProtocolError("Decode error."))
+                break
             end
 
             # Abstract atom headers frame away
@@ -37,10 +38,11 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
                         (!frame.is_end_headers && length(continuations) == 0) ||
                         continuations[length(continuations)].is_end_headers)
 
-                    try
-                        continuation = Frame.decode(buffer)
+                    continuation = try
+                        Frame.decode(buffer)
                     catch
                         goaway!(connection, ProtocolError("Decode error."))
+                        break
                     end
 
                     if !(typeof(continuation) == ContinuationFrame &&
@@ -76,8 +78,8 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
                 put!(channel_evt_raw, frame)
 
                 if typeof(frame) == DataFrame
-                    put!(channel_act_raw, WindowUpdate(0, length(frame.data)))
-                    put!(channel_act_raw, WindowUpdate(frame.stream_identifier, length(frame.data)))
+                    put!(channel_act_raw, WindowUpdateFrame(0, length(frame.data)))
+                    put!(channel_act_raw, WindowUpdateFrame(frame.stream_identifier, length(frame.data)))
                 end
 
                 if typeof(frame) == GoawayFrame
@@ -222,10 +224,6 @@ function process_channel_evt(connection::HTTPConnection)
     @assert frame.stream_identifier != 0x0
     handle_stream_state!(connection, frame, false)
     stream = get_stream(connection, frame.stream_identifier)
-
-    if connection.next_free_stream_identifier <= frame.stream_identifier
-        connection.next_free_stream_identifier = frame.stream_identifier + 1
-    end
 
     if typeof(frame) == DataFrame
         recv_stream_data(connection, frame)

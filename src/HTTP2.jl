@@ -28,7 +28,7 @@ function request(dest, port, url)
                       "accept-encoding" => "gzip, deflate",
                       "user-agent" => "HTTP2.jl")
 
-    Session.put_act!(connection, Session.ActSendHeaders(UInt32(13), headers, true))
+    Session.put_act!(connection, Session.ActSendHeaders(Session.next_free_stream_identifier(connection), headers, true))
 
     return (Session.take_evt!(connection).headers, Session.take_evt!(connection).data)
 end
