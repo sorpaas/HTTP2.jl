@@ -14,10 +14,21 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
 
     @async begin
         while true
-            if eof(buffer)
+            if connection.closed
+                close(channel_evt_raw)
                 break
             end
-            frame = Frame.decode(buffer)
+
+            if eof(buffer)
+                connection.closed = true
+                continue
+            end
+
+            try
+                frame = Frame.decode(buffer)
+            catch
+                goaway!(connection, ProtocolError("Decode error."))
+            end
 
             # Abstract atom headers frame away
             if typeof(frame) == HeadersFrame || typeof(frame) == PushPromiseFrame
@@ -26,9 +37,16 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
                         (!frame.is_end_headers && length(continuations) == 0) ||
                         continuations[length(continuations)].is_end_headers)
 
-                    continuation = Frame.decode(buffer)
-                    @assert typeof(continuation) == ContinuationFrame &&
-                        continuation.stream_identifier == frame.stream_identifier
+                    try
+                        continuation = Frame.decode(buffer)
+                    catch
+                        goaway!(connection, ProtocolError("Decode error."))
+                    end
+
+                    if !(typeof(continuation) == ContinuationFrame &&
+                         continuation.stream_identifier == frame.stream_identifier)
+                        goaway!(connection, ProtocolError("Headers must be followed by continuations if it is not the end."))
+                    end
                     push!(continuations, continuation)
                 end
 
@@ -56,21 +74,56 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer)
                 end
             else
                 put!(channel_evt_raw, frame)
+
+                if typeof(frame) == DataFrame
+                    put!(channel_act_raw, WindowUpdate(0, length(frame.data)))
+                    put!(channel_act_raw, WindowUpdate(frame.stream_identifier, length(frame.data)))
+                end
+
+                if typeof(frame) == GoawayFrame
+                    connection.closed = true
+                end
             end
         end
     end
 
     @async begin
         while true
+            if connection.closed
+                close(channel_act_raw)
+                break
+            end
+
             frame = take!(channel_act_raw)
 
             if typeof(frame) == HeadersFrame || typeof(frame) == PushPromiseFrame
-                @assert frame.is_end_headers == true
-                ## TODO Split fragment into continuations if necessary
-
                 write(buffer, Frame.encode(frame))
+                while !frame.is_end_headers
+                    continuation = take!(channel_act_raw)
+                    if !(typeof(continuation) == ContinuationFrame &&
+                         continuation.stream_identifier == frame.stream_identifier)
+                        goaway!(connection, InternalError("Headers must be followed by continuations if it is not the end."))
+                    end
+                    write(buffer, Frame.encode(continuation))
+                end
             else
-                write(buffer, Frame.encode(frame))
+                encoded = Frame.encode(frame)
+
+                if typeof(frame) == DataFrame
+                    stream = get_stream(frame.stream_identifier)
+                    if stream.window_size < length(encoded)
+                        put!(channel_act_raw, frame)
+                        continue
+                    end
+
+                    stream.window_size -= length(encoded)
+                end
+
+                write(buffer, encoded)
+
+                if typeof(frame) == GoawayFrame
+                    connection.closed = true
+                end
             end
         end
     end
@@ -86,29 +139,47 @@ function process_channel_act(connection::HTTPConnection)
 
     act = take!(channel_act)
 
-    if connection.next_free_stream_identifier <= act.stream_identifier
-        connection.next_free_stream_identifier = act.stream_identifier + 2
+    if connection.last_stream_identifier <= act.stream_identifier
+        connection.last_stream_identifier = act.stream_identifier
+    end
+
+    stream = get_stream(connection, act.stream_identifier)
+    if stream.state == IDLE && !isnull(connection.settings.max_concurrent_streams) &&
+        concurrent_streams_count(connection) > get(connection.settings.max_concurrent_streams)
+        put!(channel_act, act)
+        return
     end
 
     if typeof(act) == ActSendHeaders
+        if !isnull(connection.settings.max_header_list_size)
+            sum = 0
+
+            for k in keys(act.headers)
+                sum += length(k) + length(act.headers[k]) + 32
+            end
+
+            if sum > get(connection.settings.max_header_list_size)
+                goaway!(connection, InternalError("Header list size exceeded."))
+                return
+            end
+        end
+
         frame = send_stream_headers(connection, act)
         handle_stream_state!(connection, frame, true)
-        return
-    end
-
-    if typeof(act) == ActSendData
+    elseif typeof(act) == ActSendData
         frame = send_stream_data(connection, act)
         handle_stream_state!(connection, frame, true)
-        return
-    end
+    elseif typeof(act) == ActPushPromise
+        if !connection.settings.push_enabled
+            goaway!(connection, InternalError("Push is disabled."))
+            return
+        end
 
-    if typeof(act) == ActPushPromise
         frame = send_stream_push_promise(connection, act)
         handle_stream_state!(connection, frame, true)
-        return
+    else
+        goaway!(connection, InternalError("Unknown action for channel."))
     end
-
-    @assert false
 end
 
 function process_channel_evt(connection::HTTPConnection)
@@ -202,6 +273,13 @@ function initialize_loop_async(connection::HTTPConnection, buffer)
 
     @async begin
         while true
+            if connection.closed
+                put!(channel_evt, EvtGoaway())
+                close(channel_act)
+                close(channel_evt)
+                break
+            end
+
             c = select([channel_evt_raw, channel_act])
             if c == channel_evt_raw
                 process_channel_evt(connection)

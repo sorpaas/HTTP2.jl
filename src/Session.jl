@@ -53,6 +53,8 @@ immutable EvtRecvData
     is_end_stream::Bool
 end
 
+immutable EvtGoaway end
+
 type HTTPStream
     stream_identifier::UInt32
     state::STREAM_STATE
@@ -65,7 +67,8 @@ type HTTPConnection
     streams::Array{HTTPStream, 1}
     window_size::UInt32
     isclient::Bool
-    next_free_stream_identifier::UInt32
+    last_stream_identifier::UInt32
+    closed::Bool
 
     channel_act::Channel{Any} # Process actions
     channel_act_raw::Channel{Any} # Process raw frames
@@ -76,22 +79,30 @@ type HTTPConnection
     ## io -> channel_evt_raw -> channel_evt -> events
 end
 
+HTTPConnection(isclient) = HTTPConnection(HPack.new_dynamic_table(),
+                                          Array{HTTPStream, 1}(),
+                                          65535,
+                                          isclient,
+                                          isclient ? 1 : 2,
+                                          false,
+
+                                          Channel(),
+                                          Channel(),
+                                          Channel(),
+                                          Channel())
+
+function next_free_stream_identifier(connection::HTTPConnection)
+    return connection.last_stream_identifier + 2
+end
+
 include("Session/utils.jl")
+include("Session/errors.jl")
+include("Session/settings.jl")
 include("Session/states.jl")
 include("Session/handlers.jl")
 include("Session/channels.jl")
 
 function new_connection(buffer; isclient::Bool=true)
-    connection = HTTPConnection(HPack.new_dynamic_table(),
-                                Array{HTTPStream, 1}(),
-                                65535,
-                                isclient,
-                                isclient ? 1 : 2,
-
-                                Channel(),
-                                Channel(),
-                                Channel(),
-                                Channel())
     initialize_loop_async(connection, buffer)
     return connection
 end

@@ -1,14 +1,14 @@
 function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
     @assert stream_identifier != 0x0
 
-    for i = 1:length(connection.streams)
-        if connection.streams[i].stream_identifier == stream_identifier
-            return connection.streams[i]
+    for stream in connection.streams
+        if stream.stream_identifier == stream_identifier
+            return stream
         end
     end
 
     stream = HTTPStream(stream_identifier, IDLE,
-                        65535, Nullable{Priority}())
+                        connection.settings.initial_window_size, Nullable{Priority}())
 
     push!(connection.streams, stream)
     return stream
@@ -64,20 +64,14 @@ function handle_priority!(connection::HTTPConnection, stream_identifier::UInt32,
     stream.priority = Nullable(Priority(dependent_stream_identifier, weight))
 end
 
-function handle_setting!(connection::HTTPConnection, key::Frame.SETTING_IDENTIFIER, value::UInt32)
-    if key == Frame.SETTINGS_HEADER_TABLE_SIZE
-        HPack.set_max_table_size!(connection.dynamic_table, Int(value))
-    elseif key == Frame.SETTINGS_ENABLE_PUSH
+function concurrent_streams_count(connection::HTTPConnection)
+    n = 0
 
-    elseif key == Frame.SETTINGS_MAX_CONCURRENT_STREAMS
-
-    elseif key == Frame.SETTINGS_INITIAL_WINDOW_SIZE
-
-    elseif key == Frame.SETTINGS_MAX_FRAME_SIZE
-
-    elseif key == Frame.SETTINGS_MAX_HEADER_LIST_SIZE
-
-    else
-        ## TODO implement this
+    for stream in connection.streams
+        if stream.state != IDLE && stream.state != CLOSED
+            n += 1
+        end
     end
+
+    return n
 end

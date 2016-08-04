@@ -21,10 +21,27 @@ function send_stream_headers(connection::HTTPConnection, act::ActSendHeaders)
 
     block = HPack.encode(connection.dynamic_table, act.headers; huffman=false)
     is_end_stream = act.is_end_stream
-    frame = HeadersFrame(is_end_stream, true, false, stream_identifier, Nullable{Bool}(),
-                         Nullable{UInt32}(), Nullable{UInt8}(), block)
 
-    put!(connection.channel_act_raw, frame)
+    # We don't use padding in this implementation
+    if connection.settings.max_frame_size < (length(block) + 6)
+        splitLength = connection.settings.max_frame_size - 6
+        header = HeadersFrame(is_end_stream, false, false, stream_identifier, Nullable{Bool}(),
+                              Nullable{UInt32}(), Nullable{UInt8}(), getindex(block, 1:splitLength))
+        put!(connection.channel_act_raw, header)
+
+        curPos = splitLength + 1
+        while curPos <= length(block)
+            endPos = max(curPos + splitLength - 1, length(block))
+            continuation = ContinuationFrame(endPos >= length(block), stream_identifier, getindex(block, curPos:endPos))
+            put!(connection.channel_act_raw, continuation)
+            curPos = endPos + 1
+        end
+    else
+        frame = HeadersFrame(is_end_stream, true, false, stream_identifier, Nullable{Bool}(),
+                             Nullable{UInt32}(), Nullable{UInt8}(), block)
+        put!(connection.channel_act_raw, frame)
+    end
+
     return frame
 end
 
@@ -41,9 +58,22 @@ function send_stream_data(connection::HTTPConnection, act::ActSendData)
     stream = get_stream(connection, act.stream_identifier)
 
     is_end_stream = act.is_end_stream
-    frame = DataFrame(act.stream_identifier, is_end_stream, act.data)
 
-    put!(connection.channel_act_raw, frame)
+    if connection.settings.max_frame_size < (length(act.data) + 1)
+        splitLength = connection.settings.max_frame_size - 1
+        curPos = 1
+
+        while curPos <= length(act.data)
+            endPos = max(curPos + splitLength - 1, length(act.data))
+            frame = DataFrame(act.stream_identifier, is_end_stream, getindex(act.data, curPos:endPos))
+            put!(connection.channel_act_raw, frame)
+            curPos = endPos + 1
+        end
+    else
+        frame = DataFrame(act.stream_identifier, is_end_stream, act.data)
+        put!(connection.channel_act_raw, frame)
+    end
+
     return frame
 end
 
@@ -74,12 +104,29 @@ function recv_stream_push_promise(connection::HTTPConnection, frame::PushPromise
 end
 
 function send_stream_push_promise(connection::HTTPConnection, act::ActPromise)
+    stream_identifier = act.stream_identifier
     stream = get_stream(connection, act.stream_identifier)
 
     block = HPACK.encode(connection.dynamic_table, stream.receiving_headers; huffman=false)
-    frame = PushPromiseFrame(true, act.stream_identifier, act.promised_stream_identifier, block)
 
-    put!(connection.channel_act_raw, frame)
+    # We don't use padding in this implementation
+    if connection.settings.max_frame_size < (length(block) + 5)
+        splitLength = connection.settings.max_frame_size - 5
+        header = PushPromiseFrame(false, stream_identifier, act.promised_stream_identifier, getindex(block, 1:splitLength))
+        put!(connection.channel_act_raw, header)
+
+        curPos = splitLength + 1
+        while curPos <= length(block)
+            endPos = max(curPos + splitLength - 1, length(block))
+            continuation = ContinuationFrame(endPos >= length(block), stream_identifier, getindex(block, curPos:endPos))
+            put!(connection.channel_act_raw, continuation)
+            curPos = endPos + 1
+        end
+    else
+        frame = PushPromiseFrame(true, act.stream_identifier, act.promised_stream_identifier, block)
+        put!(connection.channel_act_raw, frame)
+    end
+
     return frame
 end
 
