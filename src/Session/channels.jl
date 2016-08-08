@@ -1,15 +1,17 @@
 
-function initialize_raw_loop_async(connection::HTTPConnection, buffer)
+function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_preface=false)
     channel_act_raw = connection.channel_act_raw
     channel_evt_raw = connection.channel_evt_raw
 
     ## Initialize the connection
     CLIENT_PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 
-    if connection.isclient
-        write(buffer, CLIENT_PREFACE)
-    else
-        @assert readbytes(buffer, length(CLIENT_PREFACE)) == CLIENT_PREFACE
+    if !skip_preface
+        if connection.isclient
+            write(buffer, CLIENT_PREFACE)
+        else
+            @assert readbytes(buffer, length(CLIENT_PREFACE)) == CLIENT_PREFACE
+        end
     end
 
     @async begin
@@ -259,8 +261,8 @@ function select(waitset::Array)
     take!(c)
 end
 
-function initialize_loop_async(connection::HTTPConnection, buffer)
-    initialize_raw_loop_async(connection, buffer)
+function initialize_loop_async(connection::HTTPConnection, buffer; skip_preface=false)
+    initialize_raw_loop_async(connection, buffer; skip_preface=skip_preface)
 
     channel_act_raw = connection.channel_act_raw
     channel_act = connection.channel_act

@@ -114,9 +114,9 @@ include("Session/states.jl")
 include("Session/handlers.jl")
 include("Session/channels.jl")
 
-function new_connection(buffer; isclient::Bool=true)
+function new_connection(buffer; isclient::Bool=true, skip_preface=false)
     connection = HTTPConnection(isclient)
-    initialize_loop_async(connection, buffer)
+    initialize_loop_async(connection, buffer; skip_preface=skip_preface)
     return connection
 end
 
