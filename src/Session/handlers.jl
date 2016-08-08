@@ -107,7 +107,7 @@ function send_stream_push_promise(connection::HTTPConnection, act::ActPromise)
     stream_identifier = act.stream_identifier
     stream = get_stream(connection, act.stream_identifier)
 
-    block = HPACK.encode(connection.dynamic_table, stream.receiving_headers; huffman=false)
+    block = HPack.encode(connection.dynamic_table, act.headers; huffman=false)
 
     # We don't use padding in this implementation
     if connection.settings.max_frame_size < (length(block) + 5)

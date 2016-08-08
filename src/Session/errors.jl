@@ -32,7 +32,7 @@ function goaway!(connection::HTTPConnection, error)
         0x1
     end
 
-    frame = GoawayFrame(connection.last_stream_identifier, error_code, Array{UInt8, 1}())
+    frame = GoawayFrame(0x0, error_code, Array{UInt8, 1}())
 
     put!(connection.channel_act_raw, frame)
 end

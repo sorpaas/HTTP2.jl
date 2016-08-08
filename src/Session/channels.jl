@@ -78,7 +78,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
             else
                 put!(channel_evt_raw, frame)
 
-                if typeof(frame) == DataFrame
+                if typeof(frame) == DataFrame && !frame.is_end_stream
                     put!(channel_act_raw, WindowUpdateFrame(0, length(frame.data)))
                     put!(channel_act_raw, WindowUpdateFrame(frame.stream_identifier, length(frame.data)))
                 end
@@ -171,7 +171,7 @@ function process_channel_act(connection::HTTPConnection)
     elseif typeof(act) == ActSendData
         frame = send_stream_data(connection, act)
         handle_stream_state!(connection, frame, true)
-    elseif typeof(act) == ActPushPromise
+    elseif typeof(act) == ActPromise
         if !connection.settings.push_enabled
             goaway!(connection, InternalError("Push is disabled."))
             return
