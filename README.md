@@ -3,78 +3,166 @@
 [![Build Status](https://travis-ci.org/sorpaas/HTTP2.jl.svg?branch=master)](https://travis-ci.org/sorpaas/HTTP2.jl)
 [![HTTPClient](http://pkg.julialang.org/badges/HTTP2_0.4.svg)](http://pkg.julialang.org/?pkg=HTTP2&ver=0.4)
 
-A HTTP2 support library. It currently implements HTTP Frame encoders and decoders. A full stream and connection handler is planned.
-
-## Sending Requests
-
-To test this library, you can start a HTTP2 server by using `nghttp2` with the
-following command:
-
-```
-nghttpd --verbose --no-tls 9000
-```
-
-After that, run:
+A HTTP2 support library that handles frames, streams and connections.
 
 ```julia
-import HTTP2
-
-stream = HTTP2.request(ip"127.0.0.1", 9000, b"/")
+julia> Pkg.add("HTTP2")
+julia> using HTTP2
 ```
 
-`stream.received_headers` now contains the response headers and
-`stream.received_body` contains the response body.
+## Simple Servers and Clients
 
-## Serving Responses
+The library can directly create simple servers and clients. For full support of
+HTTP/2 Upgrade and HTTPS, use `HttpServer.jl` and `Requests.jl`.
 
-To test the HTTP server, import `HTTP2` namespace and run:
+You only use this library directly if you need low-level functionality. An
+example for the server is as follows. The code will be explained in the next
+section.
 
 ```julia
-HTTP2.serve(8000, b"<h1>Hello, world!</h1>")
+server = listen(port)
+
+println("Server started.")
+while(true)
+    buffer = accept(server)
+    println("Processing a connection ...")
+
+    connection = Session.new_connection(buffer; isclient=false)
+    ## Recv the client preface, and send an empty SETTING frame.
+
+    headers_evt = Session.take_evt!(connection)
+    stream_identifier = headers_evt.stream_identifier
+
+    sending_headers = Headers(":status" => "200",
+                              "server" => "HTTP2.jl",
+                              "date" => Dates.format(now(Dates.UTC), Dates.RFC1123Format),
+                              "content-type" => "text/html; charset=UTF-8")
+
+    Session.put_act!(connection, Session.ActSendHeaders(stream_identifier, sending_headers, false))
+    Session.put_act!(connection, Session.ActSendData(stream_identifier, body, true))
+
+    ## We are done!
+end
 ```
 
-Now you can use HTTP2 client, for example `nghttp2` to get the result:
+A client can be started in a similar way. Again the code will be explained in
+the next section.
 
+```julia
+buffer = connect(dest, port)
+
+## Create a HTTPConnection object
+connection = Session.new_connection(buffer; isclient=true)
+
+## Create a request with headers
+headers = Headers(":method" => "GET",
+                  ":path" => url,
+                  ":scheme" => "http",
+                  ":authority" => "127.0.0.1:9000",
+                  "accept" => "*/*",
+                  "accept-encoding" => "gzip, deflate",
+                  "user-agent" => "HTTP2.jl")
+
+Session.put_act!(connection, Session.ActSendHeaders(Session.next_free_stream_identifier(connection), headers, true))
+
+return (Session.take_evt!(connection).headers, Session.take_evt!(connection).data)
 ```
-nghttp http://127.0.0.1:8000
+
+## Connection Lifecycle
+
+HTTP/2 is a binary protocol, and can handle multiple requests and responses in
+one connection. As a result, you cannot read and write directly in the stream
+like HTTP/1.1. Instead, you talk with the connection through channels. The main
+interface of low-level HTTP/2 support resides in `HTTP2.Session` module.
+
+```julia
+import HTTP2.Session
 ```
+
+### Create a Buffer
+
+First you need to create a `buffer` that the connection can read and write. A
+normal TCP connection from a client is usually like this:
+
+```julia
+buffer = connect(dest, port)
+```
+
+While for server, it usually looks like this:
+
+```julia
+server = listen(port)
+buffer = accept(server)
+```
+
+You can also use `MbedTLS.jl` or other TLS library to get a buffer over TLS and
+initialize a HTTPS connection.
+
+### Initialize the Connection
+
+After getting the buffer, we can start to initialize the connection.
+
+```julia
+connection = Session.new_connection(buffer; isclient=true)
+```
+
+`isclient` key indicates whether you are a server or a client. This is needed
+because the server and client uses different stream identifiers.
+
+Another important key to note is `skip_preface`. For a normal HTTP/2 connection,
+this is usually set to false. However, if you are doing HTTP/2 protocol upgrade
+(in which case the HTTP/2 preface should be skipped), you should set this key to
+true.
+
+### Initialize a New Stream
+
+You don't need to do anything in particular to initialize a new stream, because
+they are solely identified by its identifier. To get a new stream identifier,
+call the `next_free_stream_identifier(connection)` function.
+
+### Send and Receive Headers and Data
+
+The connection is then alive, and you can start to send or receive headers and
+data through the connection. Those are done by the `take_evt!` and `put_act!`
+functions. `take_evt!(connection)` waits and return an event struct from the
+connection. `put_act!(connection, action)` put a new action to the connection
+and returns immediately.
+
+#### Actions
+
+* `ActPromise(stream_identifier, promised_stream_identifier, headers)`: This is
+  usually sends from a server, which sends a push promise. `stream_identifier`
+  is the main stream identifier, `promised_stream_identifier` is the promised
+  stream identifier that is going to be pushed, and `headers` are a `Headers`
+  struct that sends the requests.
+* `ActSendHeaders(stream_identifier, headers, is_end_stream)`: This can be used
+  to send request headers, response headers, or other headers specified in the
+  HTTP specification. If there's no more headers or data to be sent in the
+  stream, `is_end_stream` should set to true.
+* `ActSendData(stream_identifier, data, is_end_stream)`: This can be used to
+  send request body, response body, or if a protocol switch is initialize, other
+  specified protocol data. If there's no more headers or data to be sent in the
+  stream, `is_end_stream` should set to true.
+
+#### Events
+
+* `EvtPromise(stream_identifier, promised_stream_identifier, headers)`: This
+  event is triggered when a push promise is received. The struct is similar to
+  `ActPromise`.
+* `EvtRecvHeaders(stream_identifier, headers, is_end_stream)`: This event is
+  triggered when a header is received. The struct is similar to
+  `ActSendHeaders`.
+* `EvtRecvData(stream_identifier, data, is_end_stream)`: This event is triggered
+  when data is received in a stream. The struct is similar to `ActSendData`.
+* `EvtGoaway()`: This event is triggered when the whole connection is about to
+  be closed.
+
+### Close the Connection
+
+The connection can be closed using `close(connection)`.
 
 ## Frame
 
 You can do `using HTTP2.Frame` to import the library. After that, a `encode` function and a `decode` function are available. The `encode` function takes a typed frame into its binary form. The `decode` function takes an IO buffer, and returns a typed frame.
 
 For details about frames, see the [HTTP2 Specification](http://httpwg.org/specs/rfc7540.html).
-
-## Stream and Connection
-
-Once you have initialized a HTTP/2 connection, you can use the `HTTP2.Session`
-namespace to send requests and responses.
-
-### `send!`
-
-`send!` function is defined as:
-
-```julia
-send!(connection::Connection, outbuf::IOBuffer,
-      stream_identifier::UInt32, headers::Array{Header, 1}, body::Array{UInt8, 1})
-```
-
-You can use this function to initialize a request.
-
-### `promise!`
-
-`promise!` is defined as:
-
-```julia
-promise!(connection::Connection, outbuf::IOBuffer, stream_identifier::UInt32,
-         request_headers::Array{Header, 1},
-         headers::Array{Header, 1}, body::Array{UInt8, 1})
-```
-
-Use this function to initialize a push promise.
-
-### `send_next` and `recv_next`
-
-To maintain the connection, you need to create a loop that repeatly call
-`send_next` and `recv_next`. Those functions need two IO Buffers, one for
-sending data, and another for receiving data.
