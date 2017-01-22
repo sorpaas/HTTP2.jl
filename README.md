@@ -131,7 +131,7 @@ and returns immediately.
 #### Actions
 
 * `ActPromise(stream_identifier, promised_stream_identifier, headers)`: This is
-  usually sends from a server, which sends a push promise. `stream_identifier`
+  usually sent from a server which sends a push promise. `stream_identifier`
   is the main stream identifier, `promised_stream_identifier` is the promised
   stream identifier that is going to be pushed, and `headers` are a `Headers`
   struct that sends the requests.
@@ -140,7 +140,7 @@ and returns immediately.
   HTTP specification. If there's no more headers or data to be sent in the
   stream, `is_end_stream` should set to true.
 * `ActSendData(stream_identifier, data, is_end_stream)`: This can be used to
-  send request body, response body, or if a protocol switch is initialize, other
+  send request body, response body, or if a protocol switch is initialized, other
   specified protocol data. If there's no more headers or data to be sent in the
   stream, `is_end_stream` should set to true.
 

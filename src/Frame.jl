@@ -11,12 +11,12 @@ immutable FrameHeader
 end
 
 function decode_header(buf)
-    length_arr = readbytes(buf, 3)
+    length_arr = read(buf, 3)
     length = UInt32(length_arr[1]) << 16 + UInt32(length_arr[2]) << 8 + UInt32(length_arr[3])
 
-    typ = FRAME_TYPES(readbytes(buf, 1)[1])
-    flags = readbytes(buf, 1)[1]
-    stream_identifier_arr = readbytes(buf, 4)
+    typ = FRAME_TYPES(read(buf, 1)[1])
+    flags = read(buf, 1)[1]
+    stream_identifier_arr = read(buf, 4)
     stream_identifier = UInt32(stream_identifier_arr[1]) << 24 + UInt32(stream_identifier_arr[2]) << 16 +
         UInt32(stream_identifier_arr[3]) << 8 + UInt32(stream_identifier_arr[4])
 
@@ -57,7 +57,7 @@ include("Frame/continuation.jl")
 
 function decode(buf)
     header = decode_header(buf)
-    payload = readbytes(buf, header.length)
+    payload = read(buf, header.length)
     @assert length(payload) == header.length
 
     if header.typ == DATA

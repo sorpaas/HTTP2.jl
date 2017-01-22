@@ -10,7 +10,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
         if connection.isclient
             write(buffer, CLIENT_PREFACE)
         else
-            @assert readbytes(buffer, length(CLIENT_PREFACE)) == CLIENT_PREFACE
+            @assert read(buffer, length(CLIENT_PREFACE)) == CLIENT_PREFACE
         end
     end
 
