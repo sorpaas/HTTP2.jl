@@ -37,7 +37,7 @@ function encode_header(header::FrameHeader)
     write(buf, UInt8(header.stream_identifier >> 24), UInt8((header.stream_identifier >> 16) & 0x000000ff),
           UInt8((header.stream_identifier >> 8) & 0x000000ff), UInt8(header.stream_identifier & 0x000000ff))
 
-    return takebuf_array(buf)
+    return take!(buf)
 end
 
 

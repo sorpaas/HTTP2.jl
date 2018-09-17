@@ -98,10 +98,10 @@ HTTPConnection(isclient) = HTTPConnection(HPack.new_dynamic_table(),
                                           HTTPSettings(),
                                           false,
 
-                                          Channel(),
-                                          Channel(),
-                                          Channel(),
-                                          Channel())
+                                          Channel(32),
+                                          Channel(32),
+                                          Channel(32),
+                                          Channel(32))
 
 function next_free_stream_identifier(connection::HTTPConnection)
     return connection.last_stream_identifier + 2

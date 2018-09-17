@@ -27,7 +27,9 @@ function decode_settings(header, payload)
             identifier = UInt16(payload[(i-1)*6+1]) << 8 + UInt16(payload[(i-1)*6+2])
             value = UInt32(payload[(i-1)*6+3]) << 24 + UInt32(payload[(i-1)*6+4]) << 16 +
                 UInt32(payload[(i-1)*6+5]) << 8 + UInt32(payload[(i-1)*6+6])
-            push!(parameters, (SETTING_IDENTIFIER(identifier), value))
+            if identifier <= 0x6
+                push!(parameters, (SETTING_IDENTIFIER(identifier), value))
+            end
         end
         return SettingsFrame(is_ack, Nullable(parameters))
     end
