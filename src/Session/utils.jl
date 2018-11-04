@@ -8,7 +8,7 @@ function get_stream(connection::HTTPConnection, stream_identifier::UInt32)
     end
 
     stream = HTTPStream(stream_identifier, IDLE,
-                        connection.settings.initial_window_size, Nullable{Priority}())
+                        connection.settings.initial_window_size, nothing)
 
     push!(connection.streams, stream)
     return stream
@@ -27,10 +27,10 @@ end
 function get_dependency_parent(connection::HTTPConnection, stream_identifier::UInt32)
     stream = get_stream(connection, stream_identifier)
 
-    if isnull(stream.priority)
-        return Nullable{Stream}()
+    if stream.priority === nothing
+        return nothing
     else
-        return Nullable(get_stream(stream.priority.value.dependent_stream_identifier))
+        return get_stream(stream.priority.dependent_stream_identifier)
     end
 end
 
@@ -40,8 +40,8 @@ function get_dependency_children(connection::HTTPConnection, stream_identifier::
     for i = 1:length(connection.streams)
         stream = connection.streams[i]
 
-        if !isnull(stream.priority) &&
-            stream.priority.value.dependent_stream_identifier == stream_identifier
+        if (stream.priority !== nothing) &&
+            stream.priority.dependent_stream_identifier == stream_identifier
             push!(result, stream)
         end
     end
@@ -57,11 +57,11 @@ function handle_priority!(connection::HTTPConnection, stream_identifier::UInt32,
         children = get_dependency_children(connection, stream_identifier)
 
         for i = 1:length(children)
-            children[i].priority.value.dependent_stream_identifier = stream_identifier
+            children[i].priority.dependent_stream_identifier = stream_identifier
         end
     end
 
-    stream.priority = Nullable(Priority(dependent_stream_identifier, weight))
+    stream.priority = Priority(dependent_stream_identifier, weight)
 end
 
 function concurrent_streams_count(connection::HTTPConnection)

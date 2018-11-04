@@ -1,4 +1,4 @@
-immutable GoawayFrame
+struct GoawayFrame
     last_stream_identifier::UInt32
     error_code::UInt32
     debug_data::Array{UInt8, 1}

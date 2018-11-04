@@ -5,9 +5,9 @@ function recv_stream_headers(connection::HTTPConnection, frame::HeadersFrame)
     stream = get_stream(connection, stream_identifier)
 
     if frame.is_priority
-        handle_priority!(connection, stream_identifier, frame.exclusive.value,
-                         frame.dependent_stream_identifier.value,
-                         frame.weight.value)
+        handle_priority!(connection, stream_identifier, frame.exclusive,
+                         frame.dependent_stream_identifier,
+                         frame.weight)
     end
 
     block = copy(frame.fragment)
@@ -25,8 +25,8 @@ function send_stream_headers(connection::HTTPConnection, act::ActSendHeaders)
     # We don't use padding in this implementation
     if connection.settings.max_frame_size < (length(block) + 6)
         splitLength = connection.settings.max_frame_size - 6
-        header = HeadersFrame(is_end_stream, false, false, stream_identifier, Nullable{Bool}(),
-                              Nullable{UInt32}(), Nullable{UInt8}(), getindex(block, 1:splitLength))
+        header = HeadersFrame(is_end_stream, false, false, stream_identifier, nothing,
+                              nothing, nothing, getindex(block, 1:splitLength))
         put!(connection.channel_act_raw, header)
 
         curPos = splitLength + 1
@@ -37,8 +37,8 @@ function send_stream_headers(connection::HTTPConnection, act::ActSendHeaders)
             curPos = endPos + 1
         end
     else
-        frame = HeadersFrame(is_end_stream, true, false, stream_identifier, Nullable{Bool}(),
-                             Nullable{UInt32}(), Nullable{UInt8}(), block)
+        frame = HeadersFrame(is_end_stream, true, false, stream_identifier, nothing,
+                             nothing, nothing, block)
         put!(connection.channel_act_raw, frame)
     end
 

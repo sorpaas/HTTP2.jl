@@ -1,3 +1,3 @@
-using Base.Test
+using Test
 
 include("frames.jl")

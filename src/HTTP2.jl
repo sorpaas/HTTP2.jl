@@ -1,6 +1,12 @@
 module HTTP2
 
-import HttpCommon: Headers
+using Sockets
+
+const Headers = Dict{String,String}
+
+bytearr(a::Vector{UInt8}) = a
+bytearr(cs::Base.CodeUnits{UInt8,String}) = convert(Vector{UInt8}, cs)
+bytearr(s::String) = bytearr(codeunits(s))
 
 # package code goes here
 include("Frame.jl")

@@ -13,15 +13,15 @@
                  ERROR_INADEQUATE_SECURITY=0xc
                  ERROR_HTTP_1_1_REQUIRED=0xd
 
-type ProtocolError
-    message::AbstractString
+struct ProtocolError
+    message::String
 end
 
-type InternalError
-    message::AbstractString
+struct InternalError
+    message::String
 end
 
-type NullError end
+struct NullError end
 
 function goaway!(connection::HTTPConnection, error)
     error_code = if typeof(error) == NullError

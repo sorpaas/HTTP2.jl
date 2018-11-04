@@ -1,4 +1,4 @@
-immutable WindowUpdateFrame
+struct WindowUpdateFrame
     stream_identifier::UInt32
     window_size_increment::UInt32
 end
