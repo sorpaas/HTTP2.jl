@@ -12,60 +12,64 @@ julia> using HTTP2
 
 ## Simple Servers and Clients
 
-The library can directly create simple servers and clients. For full support of
-HTTP/2 Upgrade and HTTPS, use `HttpServer.jl` and `Requests.jl`.
+The library can directly create simple servers and clients.
 
 You only use this library directly if you need low-level functionality. An
 example for the server is as follows. The code will be explained in the next
 section.
 
 ```julia
+using HTTP2
+using Sockets
+using Dates
+
+port = 8888
 server = listen(port)
 
-println("Server started.")
-while(true)
-    buffer = accept(server)
-    println("Processing a connection ...")
+println("Waiting for a connection ...")
+buffer = accept(server)
+println("Processing a connection ...")
 
-    connection = Session.new_connection(buffer; isclient=false)
-    ## Recv the client preface, and send an empty SETTING frame.
+connection = HTTP2.Session.new_connection(buffer; isclient=false)
 
-    headers_evt = Session.take_evt!(connection)
-    stream_identifier = headers_evt.stream_identifier
+## Recv the client preface, and send an empty SETTING frame.
+headers_evt = HTTP2.Session.take_evt!(connection)
+stream_identifier = headers_evt.stream_identifier
 
-    sending_headers = Headers(":status" => "200",
-                              "server" => "HTTP2.jl",
-                              "date" => Dates.format(now(Dates.UTC), Dates.RFC1123Format),
-                              "content-type" => "text/html; charset=UTF-8")
+sending_headers = HTTP2.Headers(":status" => "200",
+                          "server" => "HTTP2.jl",
+                          "date" => Dates.format(now(Dates.UTC), Dates.RFC1123Format),
+                          "content-type" => "text/html; charset=UTF-8")
+sending_body = convert(Vector{UInt8}, codeunits("hello"))
 
-    Session.put_act!(connection, Session.ActSendHeaders(stream_identifier, sending_headers, false))
-    Session.put_act!(connection, Session.ActSendData(stream_identifier, body, true))
+@info("Resopnding", sending_headers, sending_body)
 
-    ## We are done!
-end
+HTTP2.Session.put_act!(connection, HTTP2.Session.ActSendHeaders(stream_identifier, sending_headers, false))
+HTTP2.Session.put_act!(connection, HTTP2.Session.ActSendData(stream_identifier, sending_body, true))
+## We are done!
 ```
 
 A client can be started in a similar way. Again the code will be explained in
 the next section.
 
 ```julia
-buffer = connect(dest, port)
+using HTTP2
+using Sockets
 
-## Create a HTTPConnection object
-connection = Session.new_connection(buffer; isclient=true)
-
-## Create a request with headers
-headers = Headers(":method" => "GET",
-                  ":path" => url,
+@info("Opening connection", conn_id)
+buffer = connect("127.0.0.1", 8888)
+connection = HTTP2.Session.new_connection(buffer; isclient=true)
+headers = HTTP2.Headers(":method" => "GET",
+                  ":path" => "/",
                   ":scheme" => "http",
                   ":authority" => "127.0.0.1:9000",
                   "accept" => "*/*",
                   "accept-encoding" => "gzip, deflate",
                   "user-agent" => "HTTP2.jl")
 
-Session.put_act!(connection, Session.ActSendHeaders(Session.next_free_stream_identifier(connection), headers, true))
-
-return (Session.take_evt!(connection).headers, Session.take_evt!(connection).data)
+@info("Sending request", req_id)
+HTTP2.Session.put_act!(connection, HTTP2.Session.ActSendHeaders(HTTP2.Session.next_free_stream_identifier(connection), headers, true))
+(rcvd_headers, rcvd_data) = (HTTP2.Session.take_evt!(connection).headers, HTTP2.Session.take_evt!(connection).data)
 ```
 
 ## Connection Lifecycle
