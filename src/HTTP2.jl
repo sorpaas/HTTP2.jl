@@ -1,6 +1,7 @@
 module HTTP2
 
 using Sockets
+using Dates
 
 const Headers = Dict{String,String}
 

@@ -203,7 +203,7 @@ function process_channel_evt(connection::HTTPConnection)
                 end
             end
             put!(channel_act_raw,
-                 SettingsFrame(true, Tuple{Frame.SETTING_IDENTIFIER, UInt32}()))
+                 SettingsFrame(true, Array{Tuple{Frame.SETTING_IDENTIFIER, UInt32}, 1}()))
         end
         return
     end
