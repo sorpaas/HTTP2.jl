@@ -4,12 +4,11 @@ os:
   - linux
   - osx
 julia:
-  - 0.4
-  - 0.5
+  - 1.0
   - nightly
 notifications:
   email: false
 # uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("PromiseExtractor"); Pkg.test("PromiseExtractor"; coverage=true)'
+script: # the default script is equivalent to the following
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia -e 'using Pkg; Pkg.clone("https://github.com/sorpaas/HPack.jl.git"); Pkg.clone(pwd()); Pkg.build("HTTP2"); Pkg.test("HTTP2"; coverage=true)';
