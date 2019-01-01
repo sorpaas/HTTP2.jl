@@ -10,7 +10,8 @@ function test_serve(port, body)
     server = listen(port)
 
     println("Server started.")
-    while true
+    connid = 1
+    while connid < 4
         println("Waiting for a connection ...")
         buffer = accept(server)
         println("Processing a connection ...")
@@ -30,10 +31,10 @@ function test_serve(port, body)
             stream_identifier = headers_evt.stream_identifier
             @info("Stream ", stream_identifier)
 
-            sending_headers = HTTP2.Headers(":status" => "200",
-                                      "server" => "HTTP2.jl",
-                                      "date" => Dates.format(now(Dates.UTC), Dates.RFC1123Format),
-                                      "content-type" => "text/html; charset=UTF-8")
+            sending_headers = [(":status", "200"),
+                               ("server", "HTTP2.jl"),
+                               ("date", Dates.format(now(Dates.UTC), Dates.RFC1123Format)),
+                               ("content-type", "text/html; charset=UTF-8")]
             sending_body = isa(body, String) ? convert(Vector{UInt8}, codeunits(body)) : body
             @info("Resopnding", sending_headers, sending_body)
 
@@ -43,6 +44,7 @@ function test_serve(port, body)
             @info("sent body")
         end
         ## We are done!
+        connid += 1
     end
 end
 

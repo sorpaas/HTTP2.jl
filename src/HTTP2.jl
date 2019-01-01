@@ -1,6 +1,6 @@
 module HTTP2
 
-const Headers = Dict{String,String}
+const Headers = Vector{Tuple{String,String}}
 
 bytearr(a::Vector{UInt8}) = a
 bytearr(cs::Base.CodeUnits{UInt8,String}) = convert(Vector{UInt8}, cs)

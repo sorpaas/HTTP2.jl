@@ -90,7 +90,7 @@ mutable struct HTTPConnection
     ## io -> channel_evt_raw -> channel_evt -> events
 end
 
-HTTPConnection(isclient) = HTTPConnection(HPack.new_dynamic_table(),
+HTTPConnection(isclient) = HTTPConnection(HPack.DynamicTable(),
                                           Array{HTTPStream, 1}(),
                                           65535,
                                           isclient,

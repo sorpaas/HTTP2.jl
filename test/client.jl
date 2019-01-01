@@ -16,13 +16,13 @@ function test_request(dest, port, url)
         @info("Opening connection", conn_id)
         buffer = connect(dest, port)
         connection = HTTP2.Session.new_connection(buffer; isclient=true)
-        headers = HTTP2.Headers(":method" => "GET",
-                          ":path" => url,
-                          ":scheme" => "http",
-                          ":authority" => "127.0.0.1:9000",
-                          "accept" => "*/*",
-                          "accept-encoding" => "gzip, deflate",
-                          "user-agent" => "HTTP2.jl")
+        headers = [(":method", "GET"),
+                   (":path", url),
+                   (":scheme", "http"),
+                   (":authority", "127.0.0.1:9000"),
+                   ("accept", "*/*"),
+                   ("accept-encoding", "gzip, deflate"),
+                   ("user-agent", "HTTP2.jl")]
 
         for req_id in 1:5
             @info("Sending request", req_id)
