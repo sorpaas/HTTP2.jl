@@ -15,6 +15,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
     end
 
     @async begin
+        try
         while true
             if connection.closed
                 break
@@ -88,9 +89,14 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
                 end
             end
         end
+        catch ex
+            @info("Got an exception $ex")
+            rethrow(ex)
+        end
     end
 
     @async begin
+        try
         while true
             if connection.closed
                 break
@@ -127,6 +133,10 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
                     connection.closed = true
                 end
             end
+        end
+        catch ex
+            @info("Got an exception $ex")
+            rethrow(ex)
         end
     end
 
@@ -256,7 +266,14 @@ end
 function select(waitset::Array)
     c = Channel(length(waitset))
     for w in waitset
-        @async put!(c, (wait(w); w))
+        @async begin
+            try
+            put!(c, (wait(w); w))
+            catch ex
+                @info("Got an exception $ex")
+                rethrow(ex)
+            end
+        end
     end
     take!(c)
 end
@@ -270,6 +287,7 @@ function initialize_loop_async(connection::HTTPConnection, buffer; skip_preface=
     channel_evt = connection.channel_evt
 
     @async begin
+        try
         while true
             if connection.closed
                 put!(channel_evt, EvtGoaway())
@@ -282,6 +300,10 @@ function initialize_loop_async(connection::HTTPConnection, buffer; skip_preface=
             else
                 process_channel_act(connection)
             end
+        end
+        catch ex
+            @info("Got an exception $ex")
+            rethrow(ex)
         end
     end
 end
