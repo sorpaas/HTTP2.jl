@@ -2,6 +2,19 @@ import HTTP2
 using HTTP2.Frame
 using Test
 using Sockets
+using MbedTLS
+
+function sslconnect(dest, port, certhostname)
+    println("Connecting over SSL ...")
+    buffer = connect(dest, port)
+    sslconfig = MbedTLS.SSLConfig(false)
+    sslbuffer = MbedTLS.SSLContext()
+    MbedTLS.setup!(sslbuffer, sslconfig)
+    MbedTLS.set_bio!(sslbuffer, buffer)
+    MbedTLS.hostname!(sslbuffer, certhostname)
+    MbedTLS.handshake!(sslbuffer)
+    return sslbuffer
+end
 
 function show_response(headers, body)
     for header in headers
@@ -11,10 +24,10 @@ function show_response(headers, body)
 end
 
 
-function test_request(dest, port, url)
+function test_request(dest, port, url, certhostname=nothing)
     for conn_id in 1:3
         @info("Opening connection", conn_id)
-        buffer = connect(dest, port)
+        buffer = (certhostname === nothing) ? connect(dest, port) : sslconnect(dest, port, certhostname)
         connection = HTTP2.Session.new_connection(buffer; isclient=true)
         headers = [(":method", "GET"),
                    (":path", url),
@@ -24,10 +37,14 @@ function test_request(dest, port, url)
                    ("accept-encoding", "gzip, deflate"),
                    ("user-agent", "HTTP2.jl")]
 
-        for req_id in 1:5
+        for req_id in 1:3
             @info("Sending request", req_id)
             HTTP2.Session.put_act!(connection, HTTP2.Session.ActSendHeaders(HTTP2.Session.next_free_stream_identifier(connection), headers, true))
-            show_response(HTTP2.Session.take_evt!(connection).headers, HTTP2.Session.take_evt!(connection).data)
+            resp_headers = HTTP2.Session.take_evt!(connection).headers
+            @show resp_headers
+            resp_data = HTTP2.Session.take_evt!(connection).data
+            @show resp_data
+            show_response(resp_headers, resp_data)
         end
 
         @info("Closing connection", conn_id)
@@ -37,4 +54,8 @@ function test_request(dest, port, url)
     end
 end
 
-test_request(ip"127.0.0.1", 8000, "/")
+if length(ARGS) == 1
+    test_request(ip"127.0.0.1", 8000, "/", ARGS[1])
+else
+    test_request(ip"127.0.0.1", 8000, "/")
+end

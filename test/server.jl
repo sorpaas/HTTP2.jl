@@ -1,19 +1,31 @@
-import HTTP2
+using HTTP2
 import HTTP2: bytearr
 using HTTP2.Frame
 using Test
 using Dates
 using Sockets
+using MbedTLS
+
+function sslaccept(server, certfile, keyfile)
+    println("Expecting a SSL connection ...")
+    sslconfig = MbedTLS.SSLConfig(certfile, keyfile)
+    buffer = accept(server)
+    sslbuffer = MbedTLS.SSLContext()
+    MbedTLS.setup!(sslbuffer, sslconfig)
+    MbedTLS.associate!(sslbuffer, buffer)
+    MbedTLS.handshake!(sslbuffer)
+    return sslbuffer
+end
 
 # test serve method
-function test_serve(port, body)
+function test_serve(port, body, certfile=nothing, keyfile=nothing)
     server = listen(port)
 
     println("Server started.")
     connid = 1
     while connid < 4
         println("Waiting for a connection ...")
-        buffer = accept(server)
+        buffer = ((certfile === nothing) || (keyfile === nothing)) ? accept(server) : sslaccept(server, certfile, keyfile)
         println("Processing a connection ...")
 
         connection = HTTP2.Session.new_connection(buffer; isclient=false)
@@ -49,4 +61,10 @@ function test_serve(port, body)
 end
 
 # A server example
-test_serve(8000, bytearr("<h1>Hello, world!</h1>"))
+if length(ARGS) == 2
+    certfile = ARGS[1]
+    keyfile = ARGS[2]
+    test_serve(8000, bytearr("<h1>Hello, world!</h1>"), certfile, keyfile)
+else
+    test_serve(8000, bytearr("<h1>Hello, world!</h1>"))
+end
