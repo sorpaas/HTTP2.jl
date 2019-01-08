@@ -1,7 +1,7 @@
 struct GoawayFrame
     last_stream_identifier::UInt32
     error_code::UInt32
-    debug_data::Array{UInt8, 1}
+    debug_data::Vector{UInt8}
 end
 
 ==(a::GoawayFrame, b::GoawayFrame) =
@@ -22,14 +22,14 @@ function decode_goaway(header, payload)
 end
 
 function encode_goaway(frame)
-    payload::Array{UInt8, 1} = [ UInt8(frame.last_stream_identifier >> 24) & 0x7f;
-                                 UInt8(frame.last_stream_identifier >> 16 & 0x000000ff);
-                                 UInt8(frame.last_stream_identifier >> 8 & 0x000000ff);
-                                 UInt8(frame.last_stream_identifier & 0x000000ff);
-                                 UInt8(frame.error_code >> 24);
-                                 UInt8(frame.error_code >> 16 & 0x000000ff);
-                                 UInt8(frame.error_code >> 8 & 0x000000ff);
-                                 UInt8(frame.error_code & 0x000000ff) ]
+    payload::Vector{UInt8} = [ UInt8(frame.last_stream_identifier >> 24) & 0x7f;
+                               UInt8(frame.last_stream_identifier >> 16 & 0x000000ff);
+                               UInt8(frame.last_stream_identifier >> 8 & 0x000000ff);
+                               UInt8(frame.last_stream_identifier & 0x000000ff);
+                               UInt8(frame.error_code >> 24);
+                               UInt8(frame.error_code >> 16 & 0x000000ff);
+                               UInt8(frame.error_code >> 8 & 0x000000ff);
+                               UInt8(frame.error_code & 0x000000ff) ]
     append!(payload, frame.debug_data)
 
     return wrap_payload(payload, GOAWAY, 0x0, 0x0)
