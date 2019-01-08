@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+HOSTNAME=$1
 
 openssl req \
     -new \
@@ -8,6 +9,6 @@ openssl req \
     -days 3650 \
     -nodes \
     -x509 \
-    -subj "/C=IN/ST=Karnataka/L=Bangalore/O=Julia/CN=www.example.com" \
-    -keyout ${DIR}/www.example.com.key \
-    -out ${DIR}/www.example.com.cert
+    -subj "/C=IN/ST=Karnataka/L=Bangalore/O=Julia/CN=$HOSTNAME" \
+    -keyout ${DIR}/$HOSTNAME.key \
+    -out ${DIR}/$HOSTNAME.cert

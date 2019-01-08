@@ -1,4 +1,5 @@
 using Test
+using Sockets
 
 include("frames.jl")
 
@@ -29,11 +30,12 @@ run_test("client.jl")
 sleep(20)
 
 GENKEYSCRIPT = joinpath(dirname(@__FILE__), "genkey.sh")
-run(`$GENKEYSCRIPT`)
+HOSTNAME = gethostname()
+run(`$GENKEYSCRIPT $HOSTNAME`)
 
-keyfile = joinpath(dirname(@__FILE__), "www.example.com.key")
-certfile = joinpath(dirname(@__FILE__), "www.example.com.cert")
+keyfile = joinpath(dirname(@__FILE__), "$HOSTNAME.key")
+certfile = joinpath(dirname(@__FILE__), "$HOSTNAME.cert")
 @async run_test("server.jl", certfile, keyfile)
 sleep(20)
-run_test("client.jl", "www.example.com")
+run_test("client.jl", HOSTNAME)
 sleep(20)
