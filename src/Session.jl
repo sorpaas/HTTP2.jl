@@ -88,19 +88,24 @@ mutable struct HTTPConnection
 
     ## actions -> channel_act -> channel_act_raw -> io
     ## io -> channel_evt_raw -> channel_evt -> events
+    act_processor::Union{Nothing,Task}
+    act_raw_processor::Union{Nothing,Task}
+    evt_raw_processor::Union{Nothing,Task}
+    evt_processor::Union{Nothing,Task}
+
+    function HTTPConnection(isclient)
+        new(HPack.DynamicTable(),
+                       Vector{HTTPStream}(),
+                       1024,
+                       isclient,
+                       isclient ? 1 : 2,
+                       HTTPSettings(),
+                       false,
+                       Channel(DEFAULT_CHANNEL_SZ), Channel(DEFAULT_CHANNEL_SZ), Channel(DEFAULT_CHANNEL_SZ), Channel(DEFAULT_CHANNEL_SZ),
+                       nothing, nothing, nothing, nothing)
+    end
 end
 
-HTTPConnection(isclient) = HTTPConnection(HPack.DynamicTable(),
-                                          Array{HTTPStream, 1}(),
-                                          65535,
-                                          isclient,
-                                          isclient ? 1 : 2,
-                                          HTTPSettings(),
-                                          false,
-                                          Channel(DEFAULT_CHANNEL_SZ),
-                                          Channel(DEFAULT_CHANNEL_SZ),
-                                          Channel(DEFAULT_CHANNEL_SZ),
-                                          Channel(DEFAULT_CHANNEL_SZ))
 
 function next_free_stream_identifier(connection::HTTPConnection)
     return connection.last_stream_identifier + 2

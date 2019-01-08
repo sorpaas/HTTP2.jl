@@ -37,14 +37,18 @@ function test_request(dest, port, url, certhostname=nothing)
                    ("accept-encoding", "gzip, deflate"),
                    ("user-agent", "HTTP2.jl")]
 
-        for req_id in 1:3
-            @info("Sending request", req_id)
-            HTTP2.Session.put_act!(connection, HTTP2.Session.ActSendHeaders(HTTP2.Session.next_free_stream_identifier(connection), headers, true))
-            resp_headers = HTTP2.Session.take_evt!(connection).headers
-            @show resp_headers
-            resp_data = HTTP2.Session.take_evt!(connection).data
-            @show resp_data
-            show_response(resp_headers, resp_data)
+        @sync begin
+            @async for req_id in 1:3
+                @info("Sending request", req_id)
+                HTTP2.Session.put_act!(connection, HTTP2.Session.ActSendHeaders(HTTP2.Session.next_free_stream_identifier(connection), headers, true))
+            end
+            @async for resp_id in 1:3
+                resp_headers = HTTP2.Session.take_evt!(connection).headers
+                @show resp_headers
+                resp_data = HTTP2.Session.take_evt!(connection).data
+                @show resp_data
+                show_response(resp_headers, resp_data)
+            end
         end
 
         @info("Closing connection", conn_id)
