@@ -1,4 +1,4 @@
-immutable DataFrame
+struct DataFrame
     stream_identifier::UInt32
     is_end_stream::Bool
     data::Array{UInt8, 1}

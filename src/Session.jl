@@ -2,32 +2,31 @@ module Session
 
 import HPack
 import HPack: DynamicTable
-import HttpCommon: Headers
-import HTTP2.Frame
+import HTTP2: bytearr, Frame, Headers
 import HTTP2.Frame: ContinuationFrame, DataFrame, GoawayFrame, HeadersFrame, PingFrame, PriorityFrame, PushPromiseFrame, RstStreamFrame, SettingsFrame, WindowUpdateFrame
 
 @enum STREAM_STATE IDLE=1 RESERVED_LOCAL=2 RESERVED_REMOTE=3 OPEN=4 HALF_CLOSED_REMOTE=5 HALF_CLOSED_LOCAL=6 CLOSED=7
 
-type Priority
+mutable struct Priority
     dependent_stream_identifier::UInt32
     weight::UInt8
 end
 
 ## Actions, which should be feeded in to `in` channel.
 
-immutable ActPromise
+struct ActPromise
     stream_identifier::UInt32
     promised_stream_identifier::UInt32
     headers::Headers
 end
 
-immutable ActSendHeaders
+struct ActSendHeaders
     stream_identifier::UInt32
     headers::Headers
     is_end_stream::Bool
 end
 
-immutable ActSendData
+struct ActSendData
     stream_identifier::UInt32
     data::Array{UInt8, 1}
     is_end_stream::Bool
@@ -35,44 +34,45 @@ end
 
 ## Events, which should be fetched from `out` channel.
 
-immutable EvtPromise
+struct EvtPromise
     stream_identifier::UInt32
     promised_stream_identifier::UInt32
     headers::Headers
 end
 
-immutable EvtRecvHeaders
+struct EvtRecvHeaders
     stream_identifier::UInt32
     headers::Headers
     is_end_stream::Bool
 end
 
-immutable EvtRecvData
+struct EvtRecvData
     stream_identifier::UInt32
     data::Array{UInt8, 1}
     is_end_stream::Bool
 end
 
-immutable EvtGoaway end
+struct EvtGoaway end
 
-type HTTPStream
+mutable struct HTTPStream
     stream_identifier::UInt32
     state::STREAM_STATE
     window_size::UInt32
-    priority::Nullable{Priority}
+    priority::Union{Nothing,Priority}
 end
 
-type HTTPSettings
+mutable struct HTTPSettings
     push_enabled::Bool
-    max_concurrent_streams::Nullable{UInt}
+    max_concurrent_streams::Union{Nothing,UInt}
     initial_window_size::UInt
     max_frame_size::UInt
-    max_header_list_size::Nullable{UInt}
+    max_header_list_size::Union{Nothing,UInt}
 end
 
-HTTPSettings() = HTTPSettings(true, Nullable(), 65535, 16384, Nullable())
+HTTPSettings() = HTTPSettings(true, nothing, 65535, 16384, nothing)
 
-type HTTPConnection
+const DEFAULT_CHANNEL_SZ = 1024
+mutable struct HTTPConnection
     dynamic_table::DynamicTable
     streams::Array{HTTPStream, 1}
     window_size::UInt32
@@ -88,20 +88,24 @@ type HTTPConnection
 
     ## actions -> channel_act -> channel_act_raw -> io
     ## io -> channel_evt_raw -> channel_evt -> events
+    act_processor::Union{Nothing,Task}
+    act_raw_processor::Union{Nothing,Task}
+    evt_raw_processor::Union{Nothing,Task}
+    evt_processor::Union{Nothing,Task}
+
+    function HTTPConnection(isclient)
+        new(HPack.DynamicTable(),
+                       Vector{HTTPStream}(),
+                       1024,
+                       isclient,
+                       isclient ? 1 : 2,
+                       HTTPSettings(),
+                       false,
+                       Channel(DEFAULT_CHANNEL_SZ), Channel(DEFAULT_CHANNEL_SZ), Channel(DEFAULT_CHANNEL_SZ), Channel(DEFAULT_CHANNEL_SZ),
+                       nothing, nothing, nothing, nothing)
+    end
 end
 
-HTTPConnection(isclient) = HTTPConnection(HPack.new_dynamic_table(),
-                                          Array{HTTPStream, 1}(),
-                                          65535,
-                                          isclient,
-                                          isclient ? 1 : 2,
-                                          HTTPSettings(),
-                                          false,
-
-                                          Channel(),
-                                          Channel(),
-                                          Channel(),
-                                          Channel())
 
 function next_free_stream_identifier(connection::HTTPConnection)
     return connection.last_stream_identifier + 2

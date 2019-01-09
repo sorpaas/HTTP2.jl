@@ -1,4 +1,4 @@
-immutable RstStreamFrame
+struct RstStreamFrame
     stream_identifier::UInt32
     error_code::UInt32
 end

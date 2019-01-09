@@ -1,9 +1,10 @@
 module Frame
-import Base: ==, AbstractIOBuffer
+import Base: ==
+import ..HTTP2: readallbytes
 
 @enum FRAME_TYPES DATA=0x0 HEADERS=0x1 PRIORITY=0x2 RST_STREAM=0x3 SETTINGS=0x4 PUSH_PROMISE=0x5 PING=0x6 GOAWAY=0x7 WINDOW_UPDATE=0x8 CONTINUATION=0x9
 
-immutable FrameHeader
+struct FrameHeader
     length::UInt32
     typ::FRAME_TYPES
     flags::UInt8
@@ -11,12 +12,12 @@ immutable FrameHeader
 end
 
 function decode_header(buf)
-    length_arr = read(buf, 3)
+    length_arr = readallbytes(buf, 3)
     length = UInt32(length_arr[1]) << 16 + UInt32(length_arr[2]) << 8 + UInt32(length_arr[3])
 
-    typ = FRAME_TYPES(read(buf, 1)[1])
-    flags = read(buf, 1)[1]
-    stream_identifier_arr = read(buf, 4)
+    typ = FRAME_TYPES(readallbytes(buf, 1)[1])
+    flags = readallbytes(buf, 1)[1]
+    stream_identifier_arr = readallbytes(buf, 4)
     stream_identifier = UInt32(stream_identifier_arr[1]) << 24 + UInt32(stream_identifier_arr[2]) << 16 +
         UInt32(stream_identifier_arr[3]) << 8 + UInt32(stream_identifier_arr[4])
 
@@ -37,11 +38,11 @@ function encode_header(header::FrameHeader)
     write(buf, UInt8(header.stream_identifier >> 24), UInt8((header.stream_identifier >> 16) & 0x000000ff),
           UInt8((header.stream_identifier >> 8) & 0x000000ff), UInt8(header.stream_identifier & 0x000000ff))
 
-    return takebuf_array(buf)
+    return take!(buf)
 end
 
 
-type UnimplementedError <: Exception end
+struct UnimplementedError <: Exception end
 
 include("Frame/utils.jl")
 include("Frame/data.jl")
@@ -56,8 +57,11 @@ include("Frame/window_update.jl")
 include("Frame/continuation.jl")
 
 function decode(buf)
+    @show "trying to read header"
     header = decode_header(buf)
-    payload = read(buf, header.length)
+    @show header.typ
+    @show header.length
+    payload = readallbytes(buf, header.length)
     @assert length(payload) == header.length
 
     if header.typ == DATA

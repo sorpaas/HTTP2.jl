@@ -1,4 +1,4 @@
-immutable ContinuationFrame
+struct ContinuationFrame
     is_end_headers::Bool
     stream_identifier::UInt32
     fragment::Array{UInt8, 1}

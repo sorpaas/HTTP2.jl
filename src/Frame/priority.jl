@@ -1,4 +1,4 @@
-immutable PriorityFrame
+struct PriorityFrame
     stream_identifier::UInt32
     exclusive::Bool
     dependent_stream_identifier::UInt32

@@ -39,7 +39,7 @@ function handle_stream_state!(connection::HTTPConnection, frame, issend::Bool)
         ## The endpoint can send a HEADERS frame. This causes the stream to open
         ## in a "half-closed (remote)" state.
         if typeof(frame) == HeadersFrame && issend
-            stream.state = HALC_CLOSED_REMOTE
+            stream.state = HALF_CLOSED_REMOTE
             return
         end
 

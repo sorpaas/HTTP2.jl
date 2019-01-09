@@ -1,11 +1,11 @@
-immutable HeadersFrame
+struct HeadersFrame
     is_end_stream::Bool
     is_end_headers::Bool
     is_priority::Bool
     stream_identifier::UInt32
-    exclusive::Nullable{Bool}
-    dependent_stream_identifier::Nullable{UInt32}
-    weight::Nullable{UInt8}
+    exclusive::Union{Nothing,Bool}
+    dependent_stream_identifier::Union{Nothing,UInt32}
+    weight::Union{Nothing,UInt8}
     fragment::Array{UInt8, 1}
 end
 
@@ -14,9 +14,9 @@ end
     a.is_end_headers == b.is_end_headers &&
     a.is_priority == b.is_priority &&
     a.stream_identifier == b.stream_identifier &&
-    (isnull(a.exclusive) || a.exclusive.value == b.exclusive.value) &&
-    (isnull(a.exclusive) || a.dependent_stream_identifier.value == b.dependent_stream_identifier.value) &&
-    (isnull(a.exclusive) || a.weight.value == b.weight.value) &&
+    ((a.exclusive === nothing) || a.exclusive == b.exclusive) &&
+    ((a.exclusive === nothing) || a.dependent_stream_identifier == b.dependent_stream_identifier) &&
+    ((a.exclusive === nothing) || a.weight == b.weight) &&
     a.fragment == b.fragment
 
 function decode_headers(header, payload)
@@ -33,11 +33,11 @@ function decode_headers(header, payload)
         weight = payload[5]
 
         return HeadersFrame(is_end_stream, is_end_headers, is_priority, header.stream_identifier,
-                           Nullable(exclusive), Nullable(dependent_stream_identifier),
-                           Nullable(weight), getindex(payload, 6:length(payload)))
+                           exclusive, dependent_stream_identifier,
+                           weight, getindex(payload, 6:length(payload)))
     else
         return HeadersFrame(is_end_stream, is_end_headers, is_priority, header.stream_identifier,
-                           Nullable{Bool}(), Nullable{UInt32}(), Nullable{UInt8}(), payload)
+                           nothing, nothing, nothing, payload)
     end
 end
 
@@ -48,12 +48,12 @@ function encode_headers(frame)
         (frame.is_priority ? 0x20 : 0x0)
 
     if frame.is_priority
-        payload::Array{UInt8, 1} = [ UInt8(frame.dependent_stream_identifier.value >> 24) & 0x7f;
-                                     UInt8(frame.dependent_stream_identifier.value >> 16 & 0x000000ff);
-                                     UInt8(frame.dependent_stream_identifier.value >> 8 & 0x000000ff);
-                                     UInt8(frame.dependent_stream_identifier.value & 0x000000ff) ]
-        payload[1] = frame.exclusive.value ? (payload[1] | 0x80 ) : payload[1]
-        push!(payload, frame.weight.value)
+        payload::Array{UInt8, 1} = [ UInt8(frame.dependent_stream_identifier >> 24) & 0x7f;
+                                     UInt8(frame.dependent_stream_identifier >> 16 & 0x000000ff);
+                                     UInt8(frame.dependent_stream_identifier >> 8 & 0x000000ff);
+                                     UInt8(frame.dependent_stream_identifier & 0x000000ff) ]
+        payload[1] = frame.exclusive ? (payload[1] | 0x80 ) : payload[1]
+        push!(payload, frame.weight)
         append!(payload, frame.fragment)
     else
         payload = frame.fragment

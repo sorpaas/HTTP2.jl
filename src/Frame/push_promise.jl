@@ -1,4 +1,4 @@
-immutable PushPromiseFrame
+struct PushPromiseFrame
     is_end_headers::Bool
     stream_identifier::UInt32
     promised_stream_identifier::UInt32

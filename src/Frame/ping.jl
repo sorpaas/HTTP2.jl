@@ -1,4 +1,4 @@
-immutable PingFrame
+struct PingFrame
     is_ack::Bool
     data::Array{UInt8, 1}
 end
