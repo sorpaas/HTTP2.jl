@@ -12,7 +12,7 @@ readallbytes(s, nbytes) = read(s, nbytes)
 function readallbytes(s::MbedTLS.SSLContext, nbytes)
     finalbuf = Vector{UInt8}(undef, nbytes)
     lfinal = 0
-    while lfinal < nbytes
+    while (lfinal < nbytes) && !eof(s)
         toread = nbytes - lfinal
         buf = Vector{UInt8}(undef, toread)
         readbytes!(s, buf, toread)
