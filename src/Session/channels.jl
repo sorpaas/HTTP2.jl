@@ -120,6 +120,7 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
                     if typeof(frame) == DataFrame
                         stream = get_stream(connection, frame.stream_identifier)
                         if stream.window_size < length(encoded)
+                            @show("putting back as window_size=$(stream.window_size), len=$(length(encoded))")
                             put!(channel_act_raw, frame)
                             continue
                         end
@@ -130,7 +131,6 @@ function initialize_raw_loop_async(connection::HTTPConnection, buffer; skip_pref
                     write(buffer, encoded)
 
                     if typeof(frame) == GoawayFrame
-                        @info("wrote a goaway frame")
                         connection.closed = true
                     end
                 end
