@@ -57,6 +57,7 @@ include("Frame/window_update.jl")
 include("Frame/continuation.jl")
 
 function decode(buf)
+    @show "trying to read header"
     header = decode_header(buf)
     @show header.typ
     @show header.length
