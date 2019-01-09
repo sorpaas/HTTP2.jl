@@ -58,6 +58,8 @@ include("Frame/continuation.jl")
 
 function decode(buf)
     header = decode_header(buf)
+    @show header.typ
+    @show header.length
     payload = readallbytes(buf, header.length)
     @assert length(payload) == header.length
 
