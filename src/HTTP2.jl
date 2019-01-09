@@ -15,12 +15,16 @@ function readallbytes(s::MbedTLS.SSLContext, nbytes)
     while (lfinal < nbytes) && !eof(s)
         toread = nbytes - lfinal
         buf = Vector{UInt8}(undef, toread)
+        @show("trying to read $toread bytes")
         readbytes!(s, buf, toread)
+        @show("read $(length(buf)) bytes")
         nread = length(buf)
         if nread > 0
             copyto!(finalbuf, lfinal+1, buf)
             lfinal += nread
         else
+            @show nread
+            sleep(0.5)
             yield()
         end
     end
